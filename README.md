@@ -1,54 +1,85 @@
-# React + TypeScript + Vite
+# Kava Life ERP - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend application for the **Kava Life ERP System**.  
+Built with **React.js**, **TypeScript**, **TailwindCSS**, and **Vite**.
 
-Currently, two official plugins are available:
+## ✨ Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **React.js** (frontend UI framework)
+- **TypeScript** (typed JavaScript)
+- **Vite** (lightning-fast build tool)
+- **TailwindCSS** (utility-first CSS framework)
+- **Supabase** (backend, auth, and storage)
 
-## Expanding the ESLint configuration
+## 📦 Project Structure
+src/
+├── assets/          # Images, logos, static files
+├── components/      # Reusable UI components
+├── pages/           # Route-based page components
+├── services/        # API service handlers (Axios)
+├── contexts/        # React context providers (AuthContext etc.)
+├── hooks/           # Custom React hooks
+├── utils/           # Helper utility functions
+├── App.tsx          # Root application component
+├── main.tsx         # Entry point
+└── index.css        # TailwindCSS imports
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🚀 Getting Started
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+Clone the repo:
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+```bash
+git clone https://github.com/yourusername/kavalife-erp-frontend.git
+cd kavalife-erp-frontend
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+Install dependencies: 
+npm run dev
+Open your browser at http://localhost:5173
+
+
+🌟 Environment Variables
+Create a .env file at the root:
+VITE_SUPABASE_URL=https://your-supabase-url.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+
+🛡 License
+
+This project is licensed under the MIT License.
+
+
+---
+
+# 🌳 2. Recommended **Branching Strategy**
+
+✅ Here’s a clean, professional flow for 2 people (you + your friend):
+
+| Branch | Purpose |
+|:---|:---|
+| `main` | Production-ready code only (always deployable) |
+| `dev` | Integration branch (latest stable features) |
+| `feature/xyz` | Feature-specific branches (short-lived) |
+| `hotfix/xyz` | For urgent fixes |
+
+✅ **Workflow**:
+
+- **Start feature**: Create branch from `dev`
+  - `git checkout -b feature/add-invoice-upload`
+- **Finish feature**: Push and create a Pull Request (PR) to `dev`
+- **Review and merge** into `dev`
+- **Periodically**, `dev` is merged into `main` after testing.
+
+✅ **Command sample**:
+
+```bash
+# Start a new feature
+git checkout dev
+git pull origin dev
+git checkout -b feature/your-feature-name
+
+# After finishing
+git add .
+git commit -m "Feature: your feature description"
+git push origin feature/your-feature-name
+
+# Create Pull Request to `dev` branch
