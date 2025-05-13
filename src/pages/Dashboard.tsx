@@ -8,6 +8,7 @@ import { Inventory } from './dashboard/Inventory';
 import { DashboardHome } from './dashboard/Home';
 import { supabase } from '@/services/supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 const Sidebar = ({
   selected,
@@ -42,6 +43,7 @@ const Dashboard = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    toast.success('Logged out successfully');
     navigate('/login');
   };
 
