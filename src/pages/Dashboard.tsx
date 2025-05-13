@@ -77,8 +77,6 @@ const Dashboard = () => {
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
             <LogOut className="h-5 w-5" />
           </Button>
-
-          {/* Mobile Sidebar Toggle */}
         </div>
       </header>
 
