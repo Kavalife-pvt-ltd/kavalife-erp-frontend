@@ -48,6 +48,22 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background text-primaryText flex flex-col">
       <header className="sticky top-0 z-40 w-full bg-white dark:bg-gray-900 shadow-sm px-6 py-6 flex justify-between items-center">
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden">
+              <Menu className="h-6 w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-64">
+            <Sidebar
+              selected={section}
+              onSelect={(s) => {
+                setSection(s);
+                setSidebarOpen(false);
+              }}
+            />
+          </SheetContent>
+        </Sheet>
         <div className="flex items-center gap-3 text-2xl font-bold overflow-hidden">
           <img
             src="https://kavalife.in/wp-content/uploads/2024/05/logo.png"
@@ -63,22 +79,6 @@ const Dashboard = () => {
           </Button>
 
           {/* Mobile Sidebar Toggle */}
-          <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
-                <Menu className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-64">
-              <Sidebar
-                selected={section}
-                onSelect={(s) => {
-                  setSection(s);
-                  setSidebarOpen(false);
-                }}
-              />
-            </SheetContent>
-          </Sheet>
         </div>
       </header>
 

@@ -7,14 +7,10 @@ const AppRouter = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public */}
         <Route path="/login" element={<Login />} />
 
-        {/* Protected */}
         <Route element={<ProtectedLayout />}>
           <Route index element={<Dashboard />} />
-          {/* Add nested routes here later, like:
-                <Route path="inventory" element={<Inventory />} /> */}
         </Route>
       </Routes>
     </BrowserRouter>
