@@ -9,17 +9,19 @@ import { DashboardHome } from './dashboard/Home';
 import { supabase } from '@/services/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { VehicleInspection } from './dashboard/VehicleInspection';
+import { GoodsReceivedNote } from './dashboard/GoodsReceivedNote';
 
 type SidebarSection = {
-  selected: 'home' | 'tasks' | 'inventory';
-  onSelect: (section: 'home' | 'tasks' | 'inventory') => void;
+  selected: 'home' | 'tasks' | 'inventory' | 'vir' | 'grn';
+  onSelect: (section: 'home' | 'tasks' | 'inventory' | 'vir' | 'grn') => void;
 };
 
 const Sidebar = ({ selected, onSelect }: SidebarSection) => (
   <nav className="w-64 bg-gray-50 dark:bg-gray-900 text-primaryText min-h-full p-6 shadow-md">
     <h2 className="text-xl font-bold mb-8">Kavalife ERP</h2>
     <ul className="space-y-3">
-      {(['home', 'inventory', 'tasks'] as const).map((key) => (
+      {(['home', 'inventory', 'tasks', 'vir', 'grn'] as const).map((key) => (
         <li key={key}>
           <button
             onClick={() => onSelect(key)}
@@ -37,7 +39,7 @@ const Sidebar = ({ selected, onSelect }: SidebarSection) => (
 
 const Dashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [section, setSection] = useState<'home' | 'tasks' | 'inventory'>('home');
+  const [section, setSection] = useState<'home' | 'tasks' | 'inventory' | 'vir' | 'grn'>('home');
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -74,7 +76,6 @@ const Dashboard = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Logout button */}
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
             <LogOut className="h-5 w-5" />
           </Button>
@@ -90,6 +91,8 @@ const Dashboard = () => {
           {section === 'home' && <DashboardHome />}
           {section === 'inventory' && <Inventory />}
           {section === 'tasks' && <TaskList />}
+          {section === 'vir' && <VehicleInspection />}
+          {section === 'grn' && <GoodsReceivedNote />}
         </main>
       </div>
     </div>
