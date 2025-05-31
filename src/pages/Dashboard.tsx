@@ -10,13 +10,12 @@ import { supabase } from '@/services/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
-const Sidebar = ({
-  selected,
-  onSelect,
-}: {
+type SidebarSection = {
   selected: 'home' | 'tasks' | 'inventory';
   onSelect: (section: 'home' | 'tasks' | 'inventory') => void;
-}) => (
+};
+
+const Sidebar = ({ selected, onSelect }: SidebarSection) => (
   <nav className="w-64 bg-gray-50 dark:bg-gray-900 text-primaryText min-h-full p-6 shadow-md">
     <h2 className="text-xl font-bold mb-8">Kavalife ERP</h2>
     <ul className="space-y-3">
