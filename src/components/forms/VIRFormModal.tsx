@@ -107,7 +107,7 @@ export const VIRFormModal = ({ onClose }: VIRFormModalProps) => {
           ))}
 
           <div className="mt-4">
-            <label className="block text-sm font-medium">Remarks</label>
+            <label className="block text-sm text-gray-600 font-medium">Remarks</label>
             <textarea
               rows={3}
               value={remarks}
@@ -125,13 +125,13 @@ export const VIRFormModal = ({ onClose }: VIRFormModalProps) => {
               type="text"
               value={doneBy}
               onChange={(e) => setDoneBy(e.target.value)}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border text-gray-600 rounded px-3 py-2"
               placeholder="Enter user ID"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Checked By</label>
+            <label className="block text-sm text-gray-600 font-medium">Checked By</label>
             <input
               type="text"
               value={checkedBy}

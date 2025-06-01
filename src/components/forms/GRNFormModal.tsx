@@ -46,7 +46,7 @@ export const GRNFormModal = ({ onClose }: GRNFormModalProps) => {
               value={virId}
               onChange={(e) => setVirId(e.target.value)}
               className="w-full border rounded text-gray-600 px-3 py-2"
-              placeholder="Enter VIR ID"
+              placeholder="Enter VIR No"
             />
           </div>
           <div>
