@@ -8,18 +8,20 @@ import { Inventory } from './dashboard/Inventory';
 import { DashboardHome } from './dashboard/Home';
 import { supabase } from '@/services/supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { VehicleInspection } from './dashboard/VehicleInspection';
+import { GoodsReceivedNote } from './dashboard/GoodsReceivedNote';
 
-const Sidebar = ({
-  selected,
-  onSelect,
-}: {
-  selected: 'home' | 'tasks' | 'inventory';
-  onSelect: (section: 'home' | 'tasks' | 'inventory') => void;
-}) => (
+type SidebarSection = {
+  selected: 'home' | 'tasks' | 'inventory' | 'vir' | 'grn';
+  onSelect: (section: 'home' | 'tasks' | 'inventory' | 'vir' | 'grn') => void;
+};
+
+const Sidebar = ({ selected, onSelect }: SidebarSection) => (
   <nav className="w-64 bg-gray-50 dark:bg-gray-900 text-primaryText min-h-full p-6 shadow-md">
     <h2 className="text-xl font-bold mb-8">Kavalife ERP</h2>
     <ul className="space-y-3">
-      {(['home', 'inventory', 'tasks'] as const).map((key) => (
+      {(['home', 'inventory', 'tasks', 'vir', 'grn'] as const).map((key) => (
         <li key={key}>
           <button
             onClick={() => onSelect(key)}
@@ -37,17 +39,34 @@ const Sidebar = ({
 
 const Dashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [section, setSection] = useState<'home' | 'tasks' | 'inventory'>('home');
+  const [section, setSection] = useState<'home' | 'tasks' | 'inventory' | 'vir' | 'grn'>('home');
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    toast.success('Logged out successfully');
     navigate('/login');
   };
 
   return (
     <div className="min-h-screen bg-background text-primaryText flex flex-col">
       <header className="sticky top-0 z-40 w-full bg-white dark:bg-gray-900 shadow-sm px-6 py-6 flex justify-between items-center">
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden">
+              <Menu className="h-6 w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-64">
+            <Sidebar
+              selected={section}
+              onSelect={(s) => {
+                setSection(s);
+                setSidebarOpen(false);
+              }}
+            />
+          </SheetContent>
+        </Sheet>
         <div className="flex items-center gap-3 text-2xl font-bold overflow-hidden">
           <img
             src="https://kavalife.in/wp-content/uploads/2024/05/logo.png"
@@ -57,28 +76,9 @@ const Dashboard = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Logout button */}
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
             <LogOut className="h-5 w-5" />
           </Button>
-
-          {/* Mobile Sidebar Toggle */}
-          <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
-                <Menu className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-64">
-              <Sidebar
-                selected={section}
-                onSelect={(s) => {
-                  setSection(s);
-                  setSidebarOpen(false);
-                }}
-              />
-            </SheetContent>
-          </Sheet>
         </div>
       </header>
 
@@ -91,6 +91,8 @@ const Dashboard = () => {
           {section === 'home' && <DashboardHome />}
           {section === 'inventory' && <Inventory />}
           {section === 'tasks' && <TaskList />}
+          {section === 'vir' && <VehicleInspection />}
+          {section === 'grn' && <GoodsReceivedNote />}
         </main>
       </div>
     </div>
