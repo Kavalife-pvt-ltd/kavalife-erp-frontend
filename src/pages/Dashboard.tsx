@@ -6,11 +6,11 @@ import { Menu, LogOut } from 'lucide-react';
 import { TaskList } from './dashboard/Tasks';
 import { Inventory } from './dashboard/Inventory';
 import { DashboardHome } from './dashboard/Home';
-import { supabase } from '@/services/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { VehicleInspection } from './dashboard/VehicleInspection';
 import { GoodsReceivedNote } from './dashboard/GoodsReceivedNote';
+import { logoutUser } from '@/api/auth';
 
 type SidebarSection = {
   selected: 'home' | 'tasks' | 'inventory' | 'vir' | 'grn';
@@ -43,7 +43,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await logoutUser();
     toast.success('Logged out successfully');
     navigate('/login');
   };

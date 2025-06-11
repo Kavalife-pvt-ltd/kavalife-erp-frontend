@@ -1,28 +1,31 @@
 import { useState } from 'react';
-import { supabase } from '../services/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { loginUser } from '@/api/auth';
+import { useAuthContext } from '@/contexts/useAuthContext';
 
 const Login = () => {
   const isDev = import.meta.env.DEV;
-  const [email, setEmail] = useState(isDev ? (import.meta.env.VITE_DEV_EMAIL ?? '') : '');
+  const [username, setUsername] = useState(isDev ? (import.meta.env.VITE_DEV_EMAIL ?? '') : '');
   const [password, setPassword] = useState(isDev ? (import.meta.env.VITE_DEV_PASSWORD ?? '') : '');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { setIsAuthenticated } = useAuthContext();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      toast.error(error.message);
-    } else {
+    try {
+      const user = await loginUser(username, password);
+      console.log('user', user);
+      setIsAuthenticated(user.data);
       navigate('/');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('An unknown error occurred.');
+      }
     }
 
     setLoading(false);
@@ -44,19 +47,19 @@ const Login = () => {
         <h1 className="text-2xl font-bold text-center mb-6 text-black ">Login</h1>
 
         <form onSubmit={handleLogin} aria-label="Login form">
-          {/* Email/ID */}
+          {/* username/ID */}
           <div className="mb-4">
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email / ID
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+              username / ID
             </label>
             <input
               type="text"
-              id="email"
-              name="email"
+              id="username"
+              name="username"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email or ID"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your username or ID"
               className="mt-1 block w-full px-3 py-2 border text-black border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
