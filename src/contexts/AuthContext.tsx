@@ -7,10 +7,10 @@ export interface User {
 }
 
 export interface AuthContextType {
-  isAuthenticated: User | null;
+  authUser: User | null;
   isLoading: boolean;
   logout: () => void;
-  setIsAuthenticated: (user: User | null) => void;
+  setAuthUser: (user: User | null) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);

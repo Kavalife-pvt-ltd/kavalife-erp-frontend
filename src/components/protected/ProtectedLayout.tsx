@@ -3,13 +3,13 @@ import { useAuthContext } from '@/contexts/useAuthContext';
 import { Loader } from '@/components/ui/Loader';
 
 const ProtectedLayout = () => {
-  const { isAuthenticated, isLoading } = useAuthContext();
+  const { authUser, isLoading } = useAuthContext();
 
   if (isLoading) {
     return <Loader />;
   }
 
-  if (!isAuthenticated) {
+  if (!authUser) {
     return <Navigate to="/login" replace />;
   }
 

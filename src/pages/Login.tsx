@@ -10,7 +10,7 @@ const Login = () => {
   const [password, setPassword] = useState(isDev ? (import.meta.env.VITE_DEV_PASSWORD ?? '') : '');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setIsAuthenticated } = useAuthContext();
+  const { setAuthUser } = useAuthContext();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -18,7 +18,7 @@ const Login = () => {
     try {
       const user = await loginUser(username, password);
       console.log('user', user);
-      setIsAuthenticated(user.data);
+      setAuthUser(user.data);
       navigate('/');
     } catch (error: unknown) {
       if (error instanceof Error) {

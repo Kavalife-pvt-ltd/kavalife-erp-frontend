@@ -4,13 +4,13 @@ import { checkUser, logoutUser } from '@/api/auth';
 import { useNavigate } from 'react-router-dom';
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<User | null>(null);
+  const [authUser, setAuthUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   const logout = async () => {
     await logoutUser();
-    setIsAuthenticated(null);
+    setAuthUser(null);
     navigate('/login');
   };
 
@@ -18,9 +18,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const validateSession = async () => {
       try {
         const res = await checkUser();
-        setIsAuthenticated(res.data.data); // Assumes API returns `{ data: { id, username, role } }`
+        setAuthUser(res.data.data); // Assumes API returns `{ data: { id, username, role } }`
       } catch {
-        setIsAuthenticated(null);
+        setAuthUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, logout, setIsAuthenticated }}>
+    <AuthContext.Provider value={{ authUser, isLoading, logout, setAuthUser }}>
       {children}
     </AuthContext.Provider>
   );
