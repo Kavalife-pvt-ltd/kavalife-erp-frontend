@@ -1,11 +1,17 @@
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '@/contexts/useAuth';
+import { useAuthContext } from '@/hooks/useAuthContext';
+import { Loader } from '@/components/ui/Loader';
 
 const ProtectedLayout = () => {
-  const { user, loading } = useAuth();
+  const { authUser, isLoading } = useAuthContext();
 
-  if (loading) return <div>Loading...</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (isLoading) {
+    return <Loader />;
+  }
+
+  if (!authUser) {
+    return <Navigate to="/login" replace />;
+  }
 
   return <Outlet />;
 };
