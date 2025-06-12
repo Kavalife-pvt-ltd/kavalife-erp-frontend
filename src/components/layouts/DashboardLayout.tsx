@@ -4,7 +4,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import toast from 'react-hot-toast';
 import { logoutUser } from '@/api/auth';
-import { useAuthContext } from '@/contexts/useAuthContext';
+import { useAuthContext } from '@/hooks/useAuthContext';
 import Header from '../Header';
 import Sidebar from '../Sidebar';
 

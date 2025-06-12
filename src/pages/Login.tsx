@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { loginUser } from '@/api/auth';
-import { useAuthContext } from '@/contexts/useAuthContext';
+import { useAuthContext } from '@/hooks/useAuthContext';
 
 const Login = () => {
   const isDev = import.meta.env.DEV;

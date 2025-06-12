@@ -1,7 +1,7 @@
 // components/Header.tsx
 import { Menu, LogOut } from 'lucide-react';
 import { Button } from './ui/button';
-import { useAuthContext } from '@/contexts/useAuthContext';
+import { useAuthContext } from '@/hooks/useAuthContext';
 
 type HeaderProps = {
   onLogout: () => void;

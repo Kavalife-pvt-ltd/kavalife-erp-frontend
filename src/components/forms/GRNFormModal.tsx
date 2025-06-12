@@ -1,5 +1,5 @@
 // components/forms/GRNFormModal.tsx
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
@@ -19,6 +19,7 @@ export const GRNFormModal = ({ onClose }: GRNFormModalProps) => {
   const [invoiceImg, setInvoiceImg] = useState('');
   const [doneBy, setDoneBy] = useState('');
   const [checkedBy, setCheckedBy] = useState('');
+  const modalRef = useRef<HTMLDivElement | null>(null);
 
   const handleSubmit = async () => {
     try {
@@ -31,9 +32,34 @@ export const GRNFormModal = ({ onClose }: GRNFormModalProps) => {
     }
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 overflow-y-auto">
-      <div className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-xl w-full max-w-2xl relative">
+      <div
+        ref={modalRef}
+        className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-xl w-full max-w-2xl relative"
+      >
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-600 hover:text-black">
           <X className="w-5 h-5" />
         </button>
