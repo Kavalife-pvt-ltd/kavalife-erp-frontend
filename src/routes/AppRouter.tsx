@@ -20,6 +20,10 @@ const AppRouter = () => {
           <Route path="tasks" element={<TaskList />} />
           <Route path="vir" element={<VehicleInspection />} />
           <Route path="grn" element={<GoodsReceivedNote />} />
+          <Route path="extraction" element={<GoodsReceivedNote />} />
+          <Route path="purification" element={<GoodsReceivedNote />} />
+          <Route path="stripping" element={<GoodsReceivedNote />} />
+          <Route path="decolorisation" element={<GoodsReceivedNote />} />
         </Route>
       </Route>
     </Routes>

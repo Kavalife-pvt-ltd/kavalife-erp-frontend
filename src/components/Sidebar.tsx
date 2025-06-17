@@ -24,6 +24,10 @@ const links = [
   { to: '/tasks', label: 'Tasks', icon: ListTodo },
   { to: '/vir', label: 'VIR', icon: ClipboardList },
   { to: '/grn', label: 'GRN', icon: Truck },
+  { to: '/extraction', label: 'Extraction', icon: Truck },
+  { to: '/stripping', label: 'Stripping', icon: Truck },
+  { to: '/purification', label: 'Purification', icon: Truck },
+  { to: '/decolorisation', label: 'Decolorisation', icon: Truck },
 ];
 
 const Sidebar = ({ onSelect, collapsed = false, toggleCollapsed }: SidebarProps) => {

@@ -6,7 +6,7 @@ interface VIRCardProps {
   createdAt: string;
   vendor: string;
   product: string;
-  status: 'pending' | 'in-progress' | 'completed';
+  status: 'pending verification' | 'verified';
   remarks: string;
   doneBy?: string;
   checkedBy?: string;
@@ -15,9 +15,8 @@ interface VIRCardProps {
 }
 
 const statusColorMap: Record<VIRCardProps['status'], string> = {
-  pending: 'bg-yellow-500',
-  'in-progress': 'bg-blue-500',
-  completed: 'bg-green-500',
+  'pending verification': 'bg-yellow-500',
+  verified: 'bg-blue-500',
 };
 
 export const VIRCard = ({

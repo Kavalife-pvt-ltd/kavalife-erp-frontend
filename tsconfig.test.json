@@ -1,0 +1,20 @@
+{
+    "extends": "./tsconfig.app.json",
+    "compilerOptions": {
+        // Enable JSX support for React Testing Library
+        "jsx": "react-jsx",
+        // Pull in Jest & Jest-DOM typings
+        "types": [
+            "jest",
+            "node",
+            "@testing-library/jest-dom"
+        ]
+    },
+    // Include your source + any test files
+    "include": [
+        "src",
+        "src/**/*.test.ts",
+        "src/**/*.test.tsx",
+        "jest.setup.ts"
+    ]
+}

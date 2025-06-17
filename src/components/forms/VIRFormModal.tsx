@@ -69,6 +69,7 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
             remarks,
             checklist,
             createdBy: authUser,
+            createdAt: new Date().toISOString(),
           }),
         });
         toast.success('VIR successfully created');
