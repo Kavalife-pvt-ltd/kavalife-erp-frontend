@@ -1,68 +1,39 @@
-// components/forms/GRNFormModal.tsx
+// src/components/forms/GRNFormModal.tsx
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
 
-// --- Types ---
-interface VIRDetails {
-  id: string;
-  vendorName: string;
-  productName: string;
-  productImage: string;
-  date: string;
-  remarks: string;
-}
+import type { GRN } from '@/types/grn';
+import type { VIRDetails } from '@/types/vir';
+import { mockVirData } from '@/types/vir';
 
 interface GRNFormModalProps {
   onClose: () => void;
+  grnToEdit?: GRN;
 }
 
-// --- Mock VIR Data (replace with real API) ---
-const mockVirData: Record<string, VIRDetails> = {
-  '101': {
-    id: '101',
-    vendorName: 'XYZ Enterprises',
-    productName: 'Chilli Powder',
-    productImage: 'https://kavalife.in/wp-content/uploads/2024/07/Capsicum-Oleoresin-1.png.png',
-    date: '2025-06-16',
-    remarks: 'Urgent shipment',
-  },
-  '102': {
-    id: '102',
-    vendorName: 'ABC Ltd.',
-    productName: 'Wheat Flour',
-    productImage: 'https://kavalife.in/wp-content/uploads/2024/07/Capsicum-Oleoresin-1.png.png',
-    date: '2025-06-14',
-    remarks: 'Double check packaging',
-  },
-  '103': {
-    id: '103',
-    vendorName: 'MNO Traders',
-    productName: 'Turmeric',
-    productImage: 'https://kavalife.in/wp-content/uploads/2024/07/Capsicum-Oleoresin-1.png.png',
-    date: '2025-06-15',
-    remarks: 'Store in cool place',
-  },
-};
-
-export const GRNFormModal = ({ onClose }: GRNFormModalProps) => {
+export const GRNFormModal = ({ onClose, grnToEdit }: GRNFormModalProps) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
 
-  // --- State ---
-  const [selectedVirId, setSelectedVirId] = useState<string>('');
-  const [virDetails, setVirDetails] = useState<VIRDetails | null>(null);
+  // --- Form state, seeded from edit or blank ---
+  const [selectedVirId, setSelectedVirId] = useState(grnToEdit?.id.toString() ?? '');
+  const [virDetails, setVirDetails] = useState<VIRDetails | null>(
+    grnToEdit ? mockVirData[grnToEdit.id.toString()] : null
+  );
 
-  const [containerQty, setContainerQty] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [invoiceNo, setInvoiceNo] = useState('');
-  const [invoiceDate, setInvoiceDate] = useState('');
-  const [invoiceImg, setInvoiceImg] = useState('');
-  const [packagingStatus, setPackagingStatus] = useState('');
-  const [doneBy, setDoneBy] = useState('');
-  const [checkedBy, setCheckedBy] = useState('');
+  const [containerQty, setContainerQty] = useState(grnToEdit?.containerQuantity.toString() ?? '');
+  const [quantity, setQuantity] = useState(grnToEdit?.quantity.toString() ?? '');
+  const [invoiceNo, setInvoiceNo] = useState(grnToEdit?.invoice.toString() ?? '');
+  const [invoiceDate, setInvoiceDate] = useState(
+    grnToEdit?.invoiceDate ?? new Date().toISOString().substr(0, 10)
+  );
+  const [invoiceImg, setInvoiceImg] = useState(grnToEdit?.invoiceImg ?? '');
+  const [packagingStatus, setPackagingStatus] = useState(grnToEdit?.packagingStatus ?? '');
+  const [doneBy, setDoneBy] = useState(grnToEdit?.doneBy ?? '');
+  const [checkedBy, setCheckedBy] = useState(grnToEdit?.checkedBy ?? '');
 
-  // --- Close handlers ---
+  // --- Close on outside click / escape ---
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
@@ -80,7 +51,7 @@ export const GRNFormModal = ({ onClose }: GRNFormModalProps) => {
     };
   }, [onClose]);
 
-  // --- Load VIR details on selection ---
+  // --- Load VIR details whenever selection changes ---
   useEffect(() => {
     if (selectedVirId) {
       setVirDetails(mockVirData[selectedVirId] || null);
@@ -104,11 +75,11 @@ export const GRNFormModal = ({ onClose }: GRNFormModalProps) => {
     }
 
     try {
-      // TODO: replace with actual API call
-      toast.success('GRN created successfully');
-      setTimeout(onClose, 1000);
+      // TODO: wire up create vs update API
+      toast.success(grnToEdit ? 'GRN updated successfully' : 'GRN created successfully');
+      setTimeout(onClose, 500);
     } catch {
-      toast.error('Failed to create GRN');
+      toast.error('Failed to save GRN');
     }
   };
 
@@ -122,32 +93,36 @@ export const GRNFormModal = ({ onClose }: GRNFormModalProps) => {
           <X className="w-5 h-5" />
         </button>
 
-        <h2 className="text-2xl font-bold mb-6">🧾 Create New GRN</h2>
+        <h2 className="text-2xl font-bold mb-6">
+          {grnToEdit ? `✏️ Edit GRN #${grnToEdit.id}` : '🧾 Create New GRN'}
+        </h2>
 
-        {/* === VIR Selector Cards === */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2">Select VIR</label>
-          <div className="flex flex-nowrap space-x-4 overflow-x-auto pb-2">
-            {Object.values(mockVirData).map((vir) => (
-              <div
-                key={vir.id}
-                onClick={() => setSelectedVirId(vir.id)}
-                className={`flex-shrink-0 w-48 p-3 border rounded cursor-pointer transition ${
-                  selectedVirId === vir.id
-                    ? 'border-blue-500 bg-blue-500'
-                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
-                }`}
-              >
-                <div className="text-sm font-semibold">VIR {vir.id}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">{vir.productName}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">{vir.vendorName}</div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">{vir.date}</div>
-              </div>
-            ))}
+        {/* VIR Selector */}
+        {!grnToEdit && (
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-2">Select VIR</label>
+            <div className="flex flex-nowrap space-x-4 overflow-x-auto pb-2">
+              {Object.values(mockVirData).map((vir) => (
+                <div
+                  key={vir.id}
+                  onClick={() => setSelectedVirId(vir.id)}
+                  className={`flex-shrink-0 w-48 p-3 border rounded cursor-pointer transition ${
+                    selectedVirId === vir.id
+                      ? 'border-blue-500 bg-blue-500 text-white'
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-current'
+                  }`}
+                >
+                  <div className="text-sm font-semibold">VIR {vir.id}</div>
+                  <div className="text-xs">{vir.productName}</div>
+                  <div className="text-xs">{vir.vendorName}</div>
+                  <div className="text-xs">{vir.date}</div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* === VIR Details Card === */}
+        {/* VIR Details */}
         {virDetails && (
           <div className="bg-gray-50 dark:bg-gray-800 border rounded-lg p-4 flex mb-6">
             <img
@@ -170,7 +145,7 @@ export const GRNFormModal = ({ onClose }: GRNFormModalProps) => {
           </div>
         )}
 
-        {/* === GRN Entry Form === */}
+        {/* Entry Form */}
         {virDetails && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -252,10 +227,11 @@ export const GRNFormModal = ({ onClose }: GRNFormModalProps) => {
           </div>
         )}
 
-        {/* === Submit Button === */}
         {virDetails && (
           <div className="mt-6 text-right">
-            <Button onClick={handleSubmit}>✅ Create GRN</Button>
+            <Button onClick={handleSubmit}>
+              {grnToEdit ? '💾 Save Changes' : '✅ Create GRN'}
+            </Button>
           </div>
         )}
       </div>
