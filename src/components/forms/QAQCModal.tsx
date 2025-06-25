@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { QAQCData } from '@/types/grn';
+import { X } from 'lucide-react';
 
 interface QAQCModalProps {
   grnId: number;
@@ -89,14 +90,17 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
       <form
         onSubmit={handleSubmit}
-        className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-md w-[80vw] max-w-[80vw] max-h-[90vh] overflow-auto"
+        className="relative bg-white dark:bg-gray-900 p-6 rounded-lg shadow-md w-[80vw] max-w-[80vw] max-h-[90vh] overflow-auto "
       >
         <h2 className="text-2xl font-bold mb-4">QA/QC for GRN #{grnId}</h2>
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-600 hover:text-black">
+          <X className="w-5 h-5" />
+        </button>
 
         {/* Sampler’s Comment */}
         <section className="mb-4">
           <SectionHeader
-            label="Sampler’s Comment"
+            label="Sampler's Comment"
             open={openSampler}
             onToggle={() => setOpenSampler((o) => !o)}
           />
@@ -108,7 +112,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   type="number"
                   value={containersSampled}
                   onChange={(e) => setContainersSampled(+e.target.value)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                   min={0}
                 />
               </label>
@@ -118,7 +122,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   type="number"
                   value={sampledQuantity}
                   onChange={(e) => setSampledQuantity(+e.target.value)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                   min={0}
                 />
               </label>
@@ -127,7 +131,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                 <input
                   value={sampledBy}
                   onChange={(e) => setSampledBy(e.target.value)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                 />
               </label>
               <label className="block col-span-2">
@@ -136,7 +140,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   type="date"
                   value={sampledOn}
                   onChange={(e) => setSampledOn(e.target.value)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                 />
               </label>
             </div>
@@ -153,7 +157,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                 <input
                   value={arNumber}
                   onChange={(e) => setArNumber(e.target.value)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                 />
               </label>
               <label className="block">
@@ -162,7 +166,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   type="date"
                   value={releaseDate}
                   onChange={(e) => setReleaseDate(e.target.value)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                 />
               </label>
               <label className="block">
@@ -170,7 +174,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                 <input
                   value={potency}
                   onChange={(e) => setPotency(e.target.value)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                 />
               </label>
               <label className="block">
@@ -178,7 +182,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                 <input
                   value={moistureContent}
                   onChange={(e) => setMoistureContent(e.target.value)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                 />
               </label>
               <label className="block">
@@ -186,7 +190,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                 <input
                   value={yieldPercent}
                   onChange={(e) => setYieldPercent(e.target.value)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                 />
               </label>
               <label className="block">
@@ -194,18 +198,18 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as Status)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                 >
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>
                 </select>
               </label>
               <label className="block col-span-2">
-                ਰ Analyst remark
+                Analyst remark
                 <textarea
                   value={analystRemark}
                   onChange={(e) => setAnalystRemark(e.target.value)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                 />
               </label>
             </div>
@@ -226,7 +230,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                 <input
                   value={analysedBy}
                   onChange={(e) => setAnalysedBy(e.target.value)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                 />
               </label>
               <label className="block">
@@ -234,7 +238,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                 <input
                   value={approvedBy}
                   onChange={(e) => setApprovedBy(e.target.value)}
-                  className="mt-1 w-full border rounded px-2 py-1"
+                  className="mt-1 w-full border rounded px-2 py-1 text-black"
                 />
               </label>
             </div>

@@ -1,4 +1,3 @@
-// src/components/ui/GRNCard.tsx
 import { cn } from '@/utils/utils';
 import type { GRN } from '@/types/grn';
 
@@ -50,7 +49,7 @@ export const GRNCard = ({ grn, onClick, onQAQCClick, className }: GRNCardProps) 
           e.stopPropagation();
           onQAQCClick();
         }}
-        className="absolute bottom-4 right-4 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+        className={`absolute bottom-4 right-4 px-3 py-1 ${grn.qaqc ? 'bg-blue-600' : 'bg-yellow-600'} text-white rounded hover:bg-blue-700`}
       >
         QA/QC
       </button>

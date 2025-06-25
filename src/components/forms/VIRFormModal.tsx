@@ -1,4 +1,3 @@
-// components/VehicleInspectionForm.tsx
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,13 +7,17 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 interface VIRFormModalProps {
   onClose: () => void;
   virData?: {
+    id: number;
     vendorId: string;
     productId: string;
+    status: 'pending verification' | 'verified';
     remarks: string;
-    checklist: Record<string, 'yes' | 'no' | 'na'>;
-    createdBy: { id: string; name: string };
+    doneBy?: string;
+    imageUrl?: string;
+    checklist?: Record<string, 'yes' | 'no' | 'na'>;
+    createdBy?: string;
     createdAt?: string;
-    verifiedBy?: { id: string; name: string };
+    verifiedBy?: string;
     verifiedAt?: string;
   };
 }
@@ -37,35 +40,36 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
   const { authUser } = useAuthContext();
   const modalRef = useRef<HTMLDivElement | null>(null);
 
-  const [vendorId, setVendorId] = useState(virData?.vendorId || '');
-  const [productId, setProductId] = useState(virData?.productId || '');
+  // Form state
+  const [vendor, setVendor] = useState(virData?.vendorId || '');
+  const [product, setProduct] = useState(virData?.productId || '');
   const [remarks, setRemarks] = useState(virData?.remarks || '');
   const [checklist, setChecklist] = useState<Record<string, 'yes' | 'no' | 'na'>>(
     virData?.checklist || {}
   );
 
-  const isVerification = Boolean(virData?.createdBy);
+  const isVerification = virData !== undefined;
 
   const handleSubmit = async () => {
     try {
       if (isVerification) {
-        // Call API to verify VIR
         await fetch('/api/verify-vir', {
           method: 'POST',
           body: JSON.stringify({
-            ...virData,
+            id: virData!.id,
+            remarks,
+            checklist,
             verifiedBy: authUser,
             verifiedAt: new Date().toISOString(),
           }),
         });
         toast.success('VIR successfully verified');
       } else {
-        // Call API to create VIR
         await fetch('/api/create-vir', {
           method: 'POST',
           body: JSON.stringify({
-            vendorId,
-            productId,
+            vendor,
+            product,
             remarks,
             checklist,
             createdBy: authUser,
@@ -74,33 +78,27 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
         });
         toast.success('VIR successfully created');
       }
-
       onClose();
-    } catch (err) {
-      const errorMessage = (err as { msg?: string })?.msg || 'Unknown error';
-      toast.error(`Failed to ${isVerification ? 'verify' : 'create'} VIR: ${errorMessage}`);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred';
+      toast.error(`Failed to ${isVerification ? 'verify' : 'create'} VIR: ${errorMsg}`);
     }
   };
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
     };
-
     document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-
+    document.addEventListener('keydown', handleEsc);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleEsc);
     };
   }, [onClose]);
 
@@ -111,127 +109,115 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
         className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative"
       >
         <h2 className="text-xl font-bold mb-4">{isVerification ? 'Verify VIR' : 'Create VIR'}</h2>
-
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-600 hover:text-black">
           <X className="w-5 h-5" />
         </button>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Vendor & Product */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-600">
           <div>
             <label className="block text-sm font-medium">Vendor</label>
             <select
-              value={vendorId}
-              onChange={(e) => setVendorId(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-gray-600"
+              value={vendor}
+              onChange={(e) => setVendor(e.target.value)}
+              className="w-full border rounded px-3 py-2"
               disabled={isVerification}
             >
               <option value="">Select Vendor</option>
-              <option value="1">ABC Ltd.</option>
-              <option value="2">XYZ Enterprises</option>
+              <option>ABC Ltd.</option>
+              <option>XYZ Enterprises</option>
             </select>
           </div>
-
           <div>
             <label className="block text-sm font-medium">Product</label>
             <select
-              value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-gray-600"
+              value={product}
+              onChange={(e) => setProduct(e.target.value)}
+              className="w-full border rounded px-3 py-2"
               disabled={isVerification}
             >
               <option value="">Select Product</option>
-              <option value="1">Chilli Powder</option>
-              <option value="2">Wheat Flour</option>
+              <option>Chilli Powder</option>
+              <option>Wheat Flour</option>
             </select>
           </div>
         </div>
 
+        {/* Checklist */}
         <div className="mt-6 space-y-4">
           <h3 className="text-md font-semibold">Checklist</h3>
-          {checklistQuestions.map((question) => (
-            <div key={question} className="space-y-2">
-              <label className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-                {question}
-              </label>
+          {checklistQuestions.map((q) => (
+            <div key={q} className="space-y-2">
+              <label className="block text-sm font-medium">{q}</label>
               <div className="flex gap-8 flex-wrap">
-                {['yes', 'no', 'na'].map((option) => (
+                {(['yes', 'no', 'na'] as const).map((opt) => (
                   <label
-                    key={option}
-                    className={`
-                      flex items-center justify-center gap-2 px-6 py-3 rounded-lg border cursor-pointer
-                      text-sm font-medium min-w-[80px]
-                      ${
-                        checklist[question] === option
-                          ? 'bg-blue-600 text-white border-blue-700'
-                          : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700'
-                      }
-                    `}
+                    key={opt}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-lg border cursor-pointer ${checklist[q] === opt ? 'bg-blue-600 text-white' : ''}`}
                   >
                     <input
                       type="radio"
-                      name={question}
-                      value={option}
+                      name={q}
                       className="hidden"
+                      checked={checklist[q] === opt}
                       disabled={isVerification}
-                      checked={checklist[question] === option}
-                      onChange={() =>
-                        setChecklist((prev) => ({
-                          ...prev,
-                          [question]: option as 'yes' | 'no' | 'na',
-                        }))
-                      }
+                      onChange={() => setChecklist((prev) => ({ ...prev, [q]: opt }))}
                     />
-                    {option.toUpperCase()}
+                    {opt.toUpperCase()}
                   </label>
                 ))}
               </div>
             </div>
           ))}
 
+          {/* Remarks */}
           <div className="mt-4">
             <label className="block text-sm font-medium">Remarks</label>
             <textarea
               rows={3}
               value={remarks}
-              disabled={isVerification}
               onChange={(e) => setRemarks(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-gray-700"
+              disabled={isVerification}
+              className="w-full border rounded px-3 py-2 text-gray-600"
               placeholder="Add remarks if any"
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-2 my-4">
-          <label className="block text-sm font-medium ">Created By:</label>
-          {virData?.createdBy ? (
-            <>
-              <span className="text-sm text-green-600">{virData?.createdBy.name}</span>
-              <span className="text-xs text-gray-500">
-                ({new Date(virData.createdAt!).toLocaleString()})
-              </span>
-            </>
-          ) : (
-            <span className="text-sm font-bold italic text-yellow-400">Pending</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="block text-sm font-medium ">Verified By:</label>
-          {virData?.verifiedBy ? (
-            <>
-              <span className="text-sm text-green-600">{virData?.verifiedBy.name}</span>
-              <span className="text-xs text-gray-500">
-                ({new Date(virData.verifiedAt!).toLocaleString()})
-              </span>
-            </>
-          ) : (
-            <span className="text-sm font-bold italic text-yellow-400">Pending</span>
-          )}
-        </div>
+        {/* Verification Info */}
+        {isVerification && (
+          <>
+            <div className="flex items-center gap-2 my-4">
+              <label className="block text-sm font-medium ">Created By:</label>
+              {virData?.createdBy ? (
+                <>
+                  <span className="text-sm text-green-600">{virData?.createdBy}</span>
+                  <span className="text-xs text-gray-500">
+                    ({new Date(virData.createdAt!).toLocaleString()})
+                  </span>
+                </>
+              ) : (
+                <span className="text-sm font-bold italic text-yellow-400">Pending</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="block text-sm font-medium ">Verified By:</label>
+              {virData?.verifiedBy ? (
+                <>
+                  <span className="text-sm text-green-600">{virData?.verifiedBy}</span>
+                  <span className="text-xs text-gray-500">
+                    ({new Date(virData.verifiedAt!).toLocaleString()})
+                  </span>
+                </>
+              ) : (
+                <span className="text-sm font-bold italic text-yellow-400">Pending</span>
+              )}
+            </div>
+          </>
+        )}
 
         <div className="mt-6 text-right">
-          <Button onClick={handleSubmit}>
-            {virData?.createdBy?.name ? 'Verify VIR' : 'Create VIR'}
-          </Button>
+          <Button onClick={handleSubmit}>{isVerification ? 'Verify VIR' : 'Create VIR'}</Button>
         </div>
       </div>
     </div>
