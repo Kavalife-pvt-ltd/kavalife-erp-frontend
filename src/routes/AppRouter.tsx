@@ -7,6 +7,8 @@ import { Inventory } from '@/pages/dashboard/Inventory';
 import { TaskList } from '@/pages/dashboard/Tasks';
 import { VehicleInspection } from '@/pages/dashboard/VehicleInspection';
 import { GoodsReceivedNote } from '@/pages/dashboard/GoodsReceivedNote';
+import ExtractionPage from '@/pages/dashboard/Extraction';
+import ExtractionFormPage from '@/components/forms/ExtractionFormPage';
 
 const AppRouter = () => {
   return (
@@ -20,7 +22,8 @@ const AppRouter = () => {
           <Route path="tasks" element={<TaskList />} />
           <Route path="vir" element={<VehicleInspection />} />
           <Route path="grn" element={<GoodsReceivedNote />} />
-          <Route path="extraction" element={<GoodsReceivedNote />} />
+          <Route path="extraction" element={<ExtractionPage />} />
+          <Route path="/extraction/form" element={<ExtractionFormPage />} />
           <Route path="purification" element={<GoodsReceivedNote />} />
           <Route path="stripping" element={<GoodsReceivedNote />} />
           <Route path="decolorisation" element={<GoodsReceivedNote />} />

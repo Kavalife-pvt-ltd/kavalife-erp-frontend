@@ -26,7 +26,7 @@ const DashboardLayout = () => {
       <Header onLogout={handleLogout} onOpenSidebar={() => setSidebarOpen(true)} />
 
       <div className="flex flex-1">
-        <aside className="hidden md:block">
+        <aside className="hidden md:block sticky top-20 h-[calc(100vh-5rem)]">
           <Sidebar collapsed={collapsed} toggleCollapsed={() => setCollapsed((prev) => !prev)} />
         </aside>
 
