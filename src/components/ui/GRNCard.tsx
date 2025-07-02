@@ -17,7 +17,7 @@ const statusColorMap: Record<GRN['status'], string> = {
 export const GRNCard = ({ grn, onClick, onQAQCClick, className }: GRNCardProps) => (
   <div
     className={cn(
-      'relative w-full flex flex-col md:flex-row gap-4 bg-white dark:bg-gray-900 p-4 rounded-lg shadow border border-border cursor-pointer',
+      'relative w-full flex flex-col md:flex-row gap-4 bg-white dark:bg-gray-900 p-4 rounded-lg shadow  cursor-pointer',
       className
     )}
     onClick={onClick}

@@ -9,6 +9,8 @@ import { VehicleInspection } from '@/pages/dashboard/VehicleInspection';
 import { GoodsReceivedNote } from '@/pages/dashboard/GoodsReceivedNote';
 import ExtractionPage from '@/pages/dashboard/Extraction';
 import ExtractionFormPage from '@/components/forms/ExtractionFormPage';
+import StrippingPage from '@/pages/dashboard/Stripping';
+import StrippingFormPage from '@/components/forms/StrippingFormPage';
 
 const AppRouter = () => {
   return (
@@ -24,9 +26,12 @@ const AppRouter = () => {
           <Route path="grn" element={<GoodsReceivedNote />} />
           <Route path="extraction" element={<ExtractionPage />} />
           <Route path="/extraction/form" element={<ExtractionFormPage />} />
+          <Route path="stripping" element={<StrippingPage />} />
+          <Route path="stripping/form" element={<StrippingFormPage />} />
           <Route path="purification" element={<GoodsReceivedNote />} />
-          <Route path="stripping" element={<GoodsReceivedNote />} />
+          <Route path="purification/form" element={<GoodsReceivedNote />} />
           <Route path="decolorisation" element={<GoodsReceivedNote />} />
+          <Route path="decolorisation/form" element={<GoodsReceivedNote />} />
         </Route>
       </Route>
     </Routes>

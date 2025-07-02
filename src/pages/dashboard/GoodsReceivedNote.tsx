@@ -69,7 +69,7 @@ export const GoodsReceivedNote = () => {
   };
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 p-6">
       <header className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Goods Received Notes</h1>
         <button
