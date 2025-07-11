@@ -1,54 +1,78 @@
-// pages/dashboard/VehicleInspection.tsx
 import { useState } from 'react';
 import { VIRFormModal } from '@/components/forms/VIRFormModal';
 import { VIRCard } from '@/components/ui/VIRCard';
 
-export const VehicleInspection = () => {
-  const [formOpen, setFormOpen] = useState(false);
+// Define the shape of your VIR items (for dummy data)
+interface VirItem {
+  id: number;
+  vendorId: string;
+  productId: string;
+  status: 'pending verification' | 'verified';
+  remarks: string;
+  doneBy?: string;
+  imageUrl?: string;
+  checklist?: Record<string, 'yes' | 'no' | 'na'>;
+  createdBy?: string;
+  createdAt?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+}
 
-  // Dummy VIR data for now
-  const dummyVirList = [
+export const VehicleInspection = () => {
+  // undefined = modal closed; null = create mode; VirItem = verify mode
+  const [selectedVir, setSelectedVir] = useState<VirItem | null | undefined>(undefined);
+
+  const dummyVirList: VirItem[] = [
     {
       id: 1,
       createdAt: '2024-05-01',
-      vendor: 'ABC Ltd.',
-      product: 'Chilli Powder',
-      status: 'pending',
+      vendorId: 'ABC Ltd.',
+      productId: 'Chilli Powder',
+      status: 'pending verification',
       remarks: 'Inspection required before approval',
-      doneBy: 'John Doe',
-      checkedBy: 'Jane Smith',
+      createdBy: 'Jane Smith',
+      checklist: {},
       imageUrl: 'https://kavalife.in/wp-content/uploads/2024/07/Capsicum-Oleoresin-1.png.png',
     },
     {
       id: 2,
       createdAt: '2024-05-04',
-      vendor: 'XYZ Enterprises',
-      product: 'Wheat Flour',
-      status: 'in-progress',
-      remarks: 'Inspection required before approval',
-      doneBy: 'John Doe',
-      checkedBy: 'Jane Smith',
+      vendorId: 'XYZ Enterprises',
+      productId: 'Wheat Flour',
+      status: 'verified',
+      remarks: 'All good here',
+      verifiedBy: 'John Doe',
+      createdBy: 'Jane Smith',
+      verifiedAt: '2024-05-05',
+      checklist: {},
       imageUrl: 'https://kavalife.in/wp-content/uploads/2024/05/img03.png',
     },
-  ] as const;
+  ];
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 p-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Vehicle Inspection Reports</h1>
         <button
-          onClick={() => setFormOpen(true)}
+          onClick={() => setSelectedVir(null)}
           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
           Generate new VIR
         </button>
       </div>
 
-      {formOpen && <VIRFormModal onClose={() => setFormOpen(false)} />}
+      {selectedVir !== undefined && (
+        <VIRFormModal
+          onClose={() => setSelectedVir(undefined)}
+          virData={selectedVir || undefined}
+        />
+      )}
 
       <div className="space-y-4">
         {dummyVirList.map((vir) => (
-          <VIRCard key={vir.id} {...vir} />
+          <div key={vir.id} className="cursor-pointer" onClick={() => setSelectedVir(vir)}>
+            <VIRCard {...vir} />
+          </div>
         ))}
       </div>
     </section>
