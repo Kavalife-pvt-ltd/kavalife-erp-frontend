@@ -11,6 +11,8 @@ import ExtractionPage from '@/pages/dashboard/Extraction';
 import ExtractionFormPage from '@/components/forms/ExtractionFormPage';
 import StrippingPage from '@/pages/dashboard/Stripping';
 import StrippingFormPage from '@/components/forms/StrippingFormPage';
+import PurificationPage from '@/pages/dashboard/Purification';
+import PurificationFormPage from '@/components/forms/PurificationFormPage';
 
 const AppRouter = () => {
   return (
@@ -28,8 +30,8 @@ const AppRouter = () => {
           <Route path="/extraction/form" element={<ExtractionFormPage />} />
           <Route path="stripping" element={<StrippingPage />} />
           <Route path="stripping/form" element={<StrippingFormPage />} />
-          <Route path="purification" element={<GoodsReceivedNote />} />
-          <Route path="purification/form" element={<GoodsReceivedNote />} />
+          <Route path="purification" element={<PurificationPage />} />
+          <Route path="purification/form" element={<PurificationFormPage />} />
           <Route path="decolorisation" element={<GoodsReceivedNote />} />
           <Route path="decolorisation/form" element={<GoodsReceivedNote />} />
         </Route>

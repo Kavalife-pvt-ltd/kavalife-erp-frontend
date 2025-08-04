@@ -25,7 +25,7 @@ export const GRNCard = ({ grn, onClick, onQAQCClick, className }: GRNCardProps) 
     <div className="flex-1 space-y-2">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center">
         <h3 className="text-lg font-semibold text-foreground">
-          {grn.vendor} — {grn.product}
+          {grn.vendorName} — {grn.productName}
         </h3>
         <span
           className={cn(

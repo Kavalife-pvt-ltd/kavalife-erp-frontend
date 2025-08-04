@@ -1,12 +1,11 @@
-// src/components/forms/GRNFormModal.tsx
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
-
 import type { GRN } from '@/types/grn';
 import type { VIRDetails } from '@/types/vir';
 import { mockVirData } from '@/types/vir';
+// import { createGRN } from '@/api/grn'; // <--- make sure this exists
 
 interface GRNFormModalProps {
   onClose: () => void;
@@ -16,24 +15,27 @@ interface GRNFormModalProps {
 export const GRNFormModal = ({ onClose, grnToEdit }: GRNFormModalProps) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
 
-  // --- Form state, seeded from edit or blank ---
-  const [selectedVirId, setSelectedVirId] = useState(grnToEdit?.id.toString() ?? '');
   const [virDetails, setVirDetails] = useState<VIRDetails | null>(
     grnToEdit ? mockVirData[grnToEdit.id.toString()] : null
   );
 
-  const [containerQty, setContainerQty] = useState(grnToEdit?.containerQuantity.toString() ?? '');
-  const [quantity, setQuantity] = useState(grnToEdit?.quantity.toString() ?? '');
-  const [invoiceNo, setInvoiceNo] = useState(grnToEdit?.invoice.toString() ?? '');
-  const [invoiceDate, setInvoiceDate] = useState(
-    grnToEdit?.invoiceDate ?? new Date().toISOString().substr(0, 10)
-  );
-  const [invoiceImg, setInvoiceImg] = useState(grnToEdit?.invoiceImg ?? '');
-  const [packagingStatus, setPackagingStatus] = useState(grnToEdit?.packagingStatus ?? '');
-  const [doneBy, setDoneBy] = useState(grnToEdit?.doneBy ?? '');
-  const [checkedBy, setCheckedBy] = useState(grnToEdit?.checkedBy ?? '');
+  const [formData, setFormData] = useState({
+    grnNo: grnToEdit?.grnNumber?.toString() ?? '',
+    virNumber: grnToEdit?.virNumber.toString() ?? '',
+    containerQty: grnToEdit?.containerQuantity?.toString() ?? '',
+    quantity: grnToEdit?.quantity?.toString() ?? '',
+    invoiceNo: grnToEdit?.invoice?.toString() ?? '',
+    invoiceDate: grnToEdit?.invoiceDate ?? new Date().toISOString().substr(0, 10),
+    invoiceImg: grnToEdit?.invoiceImg ?? '',
+    packagingStatus: grnToEdit?.packagingStatus ?? '',
+    doneBy: grnToEdit?.doneBy ?? '',
+    checkedBy: grnToEdit?.checkedBy ?? '',
+  });
 
-  // --- Close on outside click / escape ---
+  const updateForm = (key: keyof typeof formData, value: string) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
@@ -51,32 +53,43 @@ export const GRNFormModal = ({ onClose, grnToEdit }: GRNFormModalProps) => {
     };
   }, [onClose]);
 
-  // --- Load VIR details whenever selection changes ---
   useEffect(() => {
-    if (selectedVirId) {
-      setVirDetails(mockVirData[selectedVirId] || null);
+    if (formData.virNumber) {
+      setVirDetails(mockVirData[formData.virNumber] || null);
     } else {
       setVirDetails(null);
     }
-  }, [selectedVirId]);
+  }, [formData.virNumber]);
 
-  // --- Submit handler with basic validation ---
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (
-      !selectedVirId ||
-      !containerQty ||
-      !quantity ||
-      !invoiceNo ||
-      !invoiceDate ||
-      !packagingStatus
+      !formData.virNumber ||
+      !formData.containerQty ||
+      !formData.quantity ||
+      !formData.invoiceNo ||
+      !formData.invoiceDate ||
+      !formData.packagingStatus
     ) {
       toast.error('Please fill all required fields');
       return;
     }
 
+    const payload = {
+      virNumber: formData.virNumber,
+      containerQuantity: parseInt(formData.containerQty),
+      quantity: parseFloat(formData.quantity),
+      invoice: formData.invoiceNo,
+      invoiceDate: formData.invoiceDate,
+      invoiceImg: formData.invoiceImg,
+      packagingStatus: formData.packagingStatus,
+      createdBy: formData.checkedBy,
+    };
+
+    console.log(payload);
+
     try {
-      // TODO: wire up create vs update API
-      toast.success(grnToEdit ? 'GRN updated successfully' : 'GRN created successfully');
+      // await createGRN(payload);
+      toast.success('GRN created successfully');
       setTimeout(onClose, 500);
     } catch {
       toast.error('Failed to save GRN');
@@ -97,7 +110,6 @@ export const GRNFormModal = ({ onClose, grnToEdit }: GRNFormModalProps) => {
           {grnToEdit ? `✏️ Edit GRN #${grnToEdit.id}` : '🧾 Create New GRN'}
         </h2>
 
-        {/* VIR Selector */}
         {!grnToEdit && (
           <div className="mb-6">
             <label className="block text-sm font-medium mb-2">Select VIR</label>
@@ -105,9 +117,9 @@ export const GRNFormModal = ({ onClose, grnToEdit }: GRNFormModalProps) => {
               {Object.values(mockVirData).map((vir) => (
                 <div
                   key={vir.id}
-                  onClick={() => setSelectedVirId(vir.id)}
+                  onClick={() => updateForm('virNumber', vir.id)}
                   className={`flex-shrink-0 w-48 p-3 border rounded cursor-pointer transition ${
-                    selectedVirId === vir.id
+                    formData.virNumber === vir.id
                       ? 'border-blue-500 bg-blue-500 text-white'
                       : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-current'
                   }`}
@@ -122,7 +134,6 @@ export const GRNFormModal = ({ onClose, grnToEdit }: GRNFormModalProps) => {
           </div>
         )}
 
-        {/* VIR Details */}
         {virDetails && (
           <div className="bg-gray-50 dark:bg-gray-800 border rounded-lg p-4 flex mb-6">
             <img
@@ -145,85 +156,49 @@ export const GRNFormModal = ({ onClose, grnToEdit }: GRNFormModalProps) => {
           </div>
         )}
 
-        {/* Entry Form */}
         {virDetails && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium">No. of Containers</label>
-              <input
-                value={containerQty}
-                onChange={(e) => setContainerQty(e.target.value)}
-                className="w-full border rounded px-3 py-2 text-gray-700"
-                placeholder="e.g. 50"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Quantity</label>
-              <input
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className="w-full border rounded px-3 py-2 text-gray-700"
-                placeholder="e.g. 1000 kg"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Invoice Number</label>
-              <input
-                value={invoiceNo}
-                onChange={(e) => setInvoiceNo(e.target.value)}
-                className="w-full border rounded px-3 py-2 text-gray-700"
-                placeholder="Enter Invoice No"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Invoice Date</label>
-              <input
-                type="date"
-                value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
-                className="w-full border rounded px-3 py-2 text-gray-700"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Invoice Image URL</label>
-              <input
-                value={invoiceImg}
-                onChange={(e) => setInvoiceImg(e.target.value)}
-                className="w-full border rounded px-3 py-2 text-gray-700"
-                placeholder="Paste image link"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Packaging Status</label>
-              <select
-                value={packagingStatus}
-                onChange={(e) => setPackagingStatus(e.target.value)}
-                className="w-full border rounded px-3 py-2 text-gray-700"
-              >
-                <option value="">Select Status</option>
-                <option value="packed">Packed</option>
-                <option value="loose">Loose</option>
-                <option value="damaged">Damaged</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Done By</label>
-              <input
-                value={doneBy}
-                onChange={(e) => setDoneBy(e.target.value)}
-                className="w-full border rounded px-3 py-2 text-gray-700"
-                placeholder="User ID"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Checked By</label>
-              <input
-                value={checkedBy}
-                onChange={(e) => setCheckedBy(e.target.value)}
-                className="w-full border rounded px-3 py-2 text-gray-700"
-                placeholder="User ID"
-              />
-            </div>
+            <Input
+              label="No. of Containers"
+              value={formData.containerQty}
+              onChange={(v) => updateForm('containerQty', v)}
+            />
+            <Input
+              label="Quantity"
+              value={formData.quantity}
+              onChange={(v) => updateForm('quantity', v)}
+            />
+            <Input
+              label="Invoice Number"
+              value={formData.invoiceNo}
+              onChange={(v) => updateForm('invoiceNo', v)}
+            />
+            <DateInput
+              label="Invoice Date"
+              value={formData.invoiceDate}
+              onChange={(v) => updateForm('invoiceDate', v)}
+            />
+            <Input
+              label="Invoice Image URL"
+              value={formData.invoiceImg}
+              onChange={(v) => updateForm('invoiceImg', v)}
+            />
+            <SelectInput
+              label="Packaging Status"
+              value={formData.packagingStatus}
+              onChange={(v) => updateForm('packagingStatus', v)}
+              options={['packed', 'loose', 'damaged']}
+            />
+            <Input
+              label="Done By"
+              value={formData.doneBy}
+              onChange={(v) => updateForm('doneBy', v)}
+            />
+            <Input
+              label="Checked By"
+              value={formData.checkedBy}
+              onChange={(v) => updateForm('checkedBy', v)}
+            />
           </div>
         )}
 
@@ -238,3 +213,71 @@ export const GRNFormModal = ({ onClose, grnToEdit }: GRNFormModalProps) => {
     </div>
   );
 };
+
+// Helper inputs (you can define these in separate components if needed)
+const Input = ({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+}) => (
+  <div>
+    <label className="block text-sm font-medium">{label}</label>
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full border rounded px-3 py-2 text-gray-700"
+    />
+  </div>
+);
+
+const DateInput = ({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+}) => (
+  <div>
+    <label className="block text-sm font-medium">{label}</label>
+    <input
+      type="date"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full border rounded px-3 py-2 text-gray-700"
+    />
+  </div>
+);
+
+const SelectInput = ({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  options: string[];
+}) => (
+  <div>
+    <label className="block text-sm font-medium">{label}</label>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full border rounded px-3 py-2 text-gray-700"
+    >
+      <option value="">Select Status</option>
+      {options.map((opt) => (
+        <option key={opt} value={opt}>
+          {opt[0].toUpperCase() + opt.slice(1)}
+        </option>
+      ))}
+    </select>
+  </div>
+);

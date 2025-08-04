@@ -10,16 +10,16 @@ export interface VIRDetails {
 
 // Mock data — swap out for your real API later
 export const mockVirData: Record<string, VIRDetails> = {
-  '101': {
-    id: '101',
+  VIR67890: {
+    id: 'VIR67890',
     vendorName: 'XYZ Enterprises',
     productName: 'Chilli Powder',
     productImage: 'https://kavalife.in/wp-content/uploads/2024/07/Capsicum-Oleoresin-1.png.png',
     date: '2025-06-16',
     remarks: 'Urgent shipment',
   },
-  '102': {
-    id: '102',
+  VIR12345: {
+    id: 'VIR12345',
     vendorName: 'ABC Ltd.',
     productName: 'Wheat Flour',
     productImage: 'https://kavalife.in/wp-content/uploads/2024/07/Capsicum-Oleoresin-1.png.png',
