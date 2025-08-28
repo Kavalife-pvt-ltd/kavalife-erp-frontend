@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
 import { useAuthContext } from '@/hooks/useAuthContext';
 
+const baseURL = import.meta.env.VITE_BACKEND_URL;
+
 interface VIRFormModalProps {
   onClose: () => void;
   virData?: {
@@ -48,7 +50,7 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
     virData?.checklist || {}
   );
 
-  const isVerification = virData !== undefined;
+  const isVerification = virData?.id !== undefined;
 
   const handleSubmit = async () => {
     try {
@@ -56,7 +58,6 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
         await fetch('/api/verify-vir', {
           method: 'POST',
           body: JSON.stringify({
-            id: virData!.id,
             remarks,
             checklist,
             verifiedBy: authUser,
@@ -65,8 +66,9 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
         });
         toast.success('VIR successfully verified');
       } else {
-        await fetch('/api/create-vir', {
+        await fetch(`${baseURL}/vir/create`, {
           method: 'POST',
+          credentials: 'include',
           body: JSON.stringify({
             vendor,
             product,
@@ -78,6 +80,17 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
         });
         toast.success('VIR successfully created');
       }
+      console.log(
+        'virData',
+        JSON.stringify({
+          vendor,
+          product,
+          remarks,
+          checklist,
+          createdBy: authUser,
+          createdAt: new Date().toISOString(),
+        })
+      );
       onClose();
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred';

@@ -7,7 +7,7 @@ export const loginUser = async (username: string, password: string) => {
 };
 
 export const logoutUser = async () => {
-  return axios.post(`${baseURL}/api/logout`, {}, { withCredentials: true });
+  return axios.get(`${baseURL}/user/logout`, { withCredentials: true });
 };
 
 export const checkUser = async () => {
