@@ -1,72 +1,43 @@
 // src/pages/dashboard/GoodsReceivedNote.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { GRN } from '@/types/grn';
 import { GRNCard } from '@/components/ui/GRNCard';
 import { GRNFormModal } from '@/components/forms/GRNFormModal';
 import { QAQCModal } from '@/components/forms/QAQCModal';
+import { fetchGRNs } from '@/api/grn';
 
 type ModalType = 'create' | 'edit' | 'qaqc' | null;
 
 export const GoodsReceivedNote = () => {
   const [modalType, setModalType] = useState<ModalType>(null);
-  const [activeGRN, setActiveGRN] = useState<GRN | null>(null);
+  const [grnData, setGrnData] = useState<GRN | null>(null);
+  const [grns, setGRNs] = useState<GRN[]>([]);
 
-  // === dummy data ===
-  const grns: GRN[] = [
-    {
-      id: 101,
-      createdAt: '2024-05-10',
-      vendorName: 'ABC Ltd.',
-      productName: 'Chilli Powder',
-      status: 'pending',
-      quantity: 100,
-      containerQuantity: 12,
-      invoice: '2323',
-      invoiceDate: '2024-05-09',
-      invoiceImg:
-        'https://fastly.picsum.photos/id/237/200/300.jpg?hmac=TmmQSbShHz9CdQm0NkEjx1Dyh_Y984R9LpNrpvH2D_U',
-      packagingStatus: 'packed',
-      doneBy: 'John Doe',
-      createdBy: 'Jane Smith',
-      qaqc: undefined,
-      virNumber: 'VIR67890',
-      grnNumber: 'GRN101',
-    },
-    {
-      id: 102,
-      createdAt: '2024-05-12',
-      vendorName: 'XYZ Enterprises',
-      productName: 'Wheat Flour',
-      status: 'in-progress',
-      quantity: 200,
-      containerQuantity: 20,
-      invoice: '4455',
-      invoiceDate: '2024-05-11',
-      invoiceImg:
-        'https://fastly.picsum.photos/id/866/200/300.jpg?hmac=rcadCENKh4rD6MAp6V_ma-AyWv641M4iiOpe1RyFHeI',
-      packagingStatus: 'loose',
-      doneBy: 'Alice',
-      createdBy: 'Bob',
-      qaqc: undefined,
-      virNumber: 'VIR12345',
-      grnNumber: 'GRN102',
-    },
-  ];
+  useEffect(() => {
+    console.log('Fetching GRNs...');
+
+    fetchGRNs()
+      .then(setGRNs)
+      .catch((err: unknown) => {
+        console.error('Failed to fetch GRNs', err);
+      });
+  }, []);
 
   const openCreate = () => {
-    setActiveGRN(null);
+    setGrnData(null);
     setModalType('create');
   };
   const openEdit = (grn: GRN) => {
-    setActiveGRN(grn);
+    setGrnData(grn);
     setModalType('edit');
   };
   const openQAQC = (grn: GRN) => {
-    setActiveGRN(grn);
+    console.log('===============', grn);
+    setGrnData(grn);
     setModalType('qaqc');
   };
   const closeAll = () => {
-    setActiveGRN(null);
+    setGrnData(null);
     setModalType(null);
   };
 
@@ -84,17 +55,27 @@ export const GoodsReceivedNote = () => {
 
       <div className="space-y-4">
         {grns.map((g) => (
-          <GRNCard key={g.id} grn={g} onClick={() => openEdit(g)} onQAQCClick={() => openQAQC(g)} />
+          <GRNCard
+            key={g.id}
+            grn={g}
+            onClick={() => openEdit(g)}
+            onQAQCClick={(type) => {
+              if (type === 'qaqc') openQAQC(g);
+              else if (type === 'create') openCreate();
+            }}
+          />
         ))}
       </div>
 
-      {/* modals */}
       {modalType === 'create' && <GRNFormModal onClose={closeAll} />}
-      {modalType === 'edit' && activeGRN && (
-        <GRNFormModal grnToEdit={activeGRN} onClose={closeAll} />
-      )}
-      {modalType === 'qaqc' && activeGRN && (
-        <QAQCModal grnId={activeGRN.id} existingData={activeGRN.qaqc} onClose={closeAll} />
+      {modalType === 'edit' && grnData && <GRNFormModal grnData={grnData} onClose={closeAll} />}
+      {modalType === 'qaqc' && grnData && (
+        <QAQCModal
+          grnId={grnData.id}
+          grnNumber={grnData.grn_number}
+          mode={grnData.qaqcStatus === 'not_created' ? 'create' : 'view'}
+          onClose={closeAll}
+        />
       )}
     </section>
   );

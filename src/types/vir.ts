@@ -8,30 +8,16 @@ export interface VIRDetails {
   remarks: string;
 }
 
-// Mock data — swap out for your real API later
-export const mockVirData: Record<string, VIRDetails> = {
-  VIR67890: {
-    id: 'VIR67890',
-    vendorName: 'XYZ Enterprises',
-    productName: 'Chilli Powder',
-    productImage: 'https://kavalife.in/wp-content/uploads/2024/07/Capsicum-Oleoresin-1.png.png',
-    date: '2025-06-16',
-    remarks: 'Urgent shipment',
-  },
-  VIR12345: {
-    id: 'VIR12345',
-    vendorName: 'ABC Ltd.',
-    productName: 'Wheat Flour',
-    productImage: 'https://kavalife.in/wp-content/uploads/2024/07/Capsicum-Oleoresin-1.png.png',
-    date: '2025-06-14',
-    remarks: 'Double check packaging',
-  },
-  '103': {
-    id: '103',
-    vendorName: 'MNO Traders',
-    productName: 'Turmeric',
-    productImage: 'https://kavalife.in/wp-content/uploads/2024/07/Capsicum-Oleoresin-1.png.png',
-    date: '2025-06-15',
-    remarks: 'Store in cool place',
-  },
-};
+export interface VIR {
+  id: number;
+  vir_number: string;
+  vendor_id: number;
+  product_id: number;
+  checklist: Record<string, string>;
+  remarks: string;
+  created_by: number;
+  checked_by?: number;
+  checked_at?: string;
+  created_at: string;
+  status: 'in-progress' | 'completed';
+}

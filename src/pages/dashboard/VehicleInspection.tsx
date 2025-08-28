@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { VIRFormModal } from '@/components/forms/VIRFormModal';
 import { VIRCard } from '@/components/ui/VIRCard';
+import { fetchAllVIRs } from '@/api/vir';
+import { VIR } from '@/types/vir';
 
 // Define the shape of your VIR items (for dummy data)
 interface VirItem {
@@ -21,6 +23,17 @@ interface VirItem {
 export const VehicleInspection = () => {
   // undefined = modal closed; null = create mode; VirItem = verify mode
   const [selectedVir, setSelectedVir] = useState<VirItem | null | undefined>(undefined);
+  const [virList, setVirList] = useState<VIR[]>([]);
+
+  useEffect(() => {
+    const fetchVIRs = async () => {
+      const response = await fetchAllVIRs();
+      console.log(response);
+      setVirList(response);
+    };
+    fetchVIRs();
+    console.log('Vehicle Inspection page mounted');
+  }, []);
 
   const dummyVirList: VirItem[] = [
     {
@@ -49,6 +62,8 @@ export const VehicleInspection = () => {
     },
   ];
 
+  console.log(virList, dummyVirList);
+
   return (
     <section className="space-y-6 p-6">
       <div className="flex justify-between items-center">
@@ -69,7 +84,7 @@ export const VehicleInspection = () => {
       )}
 
       <div className="space-y-4">
-        {dummyVirList.map((vir) => (
+        {virList.map((vir) => (
           <div key={vir.id} className="cursor-pointer" onClick={() => setSelectedVir(vir)}>
             <VIRCard {...vir} />
           </div>

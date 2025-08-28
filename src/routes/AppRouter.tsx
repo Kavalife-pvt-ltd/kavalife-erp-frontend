@@ -25,7 +25,7 @@ const AppRouter = () => {
           <Route path="inventory" element={<Inventory />} />
           <Route path="tasks" element={<TaskList />} />
           <Route path="vir" element={<VehicleInspection />} />
-          <Route path="grn" element={<GoodsReceivedNote />} />
+          {/* <Route path="grn" element={<GoodsReceivedNote />} /> */}
           <Route path="extraction" element={<ExtractionPage />} />
           <Route path="/extraction/form" element={<ExtractionFormPage />} />
           <Route path="stripping" element={<StrippingPage />} />

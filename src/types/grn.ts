@@ -18,20 +18,22 @@ export interface QAQCData {
 
 export interface GRN {
   id: number;
-  grnNumber: string;
-  virNumber: string;
+  grn_number: string;
+  vir_number: string;
   status: string;
-  createdAt: string;
-  containerQuantity: number;
+  created_at: string;
+  container_qty: number;
   quantity: number;
   invoice: string;
-  invoiceDate: string;
-  invoiceImg: string;
-  packagingStatus: string;
+  invoice_date: string;
+  invoice_img: string;
+  packaging_status: string;
   createdBy: string;
-  productName: string;
-  vendorName: string;
+  product_name: string;
+  vendor_name: string;
+  remarks?: string;
   doneBy?: string;
-  checkedBy?: string;
-  qaqc?: QAQCData;
+  created_by?: string;
+  productImage?: string;
+  qaqcStatus: 'not_created' | 'created' | 'approved' | 'rejected' | 'under_review';
 }
