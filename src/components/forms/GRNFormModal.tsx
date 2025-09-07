@@ -4,8 +4,17 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
 import type { GRN } from '@/types/grn';
-import type { VIRDetails } from '@/types/vir';
-// import { createGRN } from '@/api/grn'; // <--- make sure this exists
+import type { VIR, VIRDetails } from '@/types/vir';
+
+const virToDetails = (vir: VIR): VIRDetails => ({
+  id: vir.id,
+  virNumber: vir.vir_number,
+  vendorName: vir.vendor_name ?? String(vir.vendor_id),
+  productName: vir.product_name ?? String(vir.product_id),
+  productImage: '',
+  date: vir.created_at,
+  remarks: vir.remarks,
+});
 
 interface GRNFormModalProps {
   onClose: () => void;
@@ -25,48 +34,46 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
     containerQty: grnData?.container_qty?.toString() ?? '',
     quantity: grnData?.quantity?.toString() ?? '',
     invoiceNo: grnData?.invoice?.toString() ?? '',
-    invoiceDate: grnData?.invoice_date ?? new Date().toISOString().substr(0, 10),
+    invoiceDate: grnData?.invoice_date ?? new Date().toISOString().slice(0, 10),
     invoiceImg: grnData?.invoice_img ?? '',
     packagingStatus: grnData?.packaging_status ?? '',
     doneBy: grnData?.doneBy ?? '',
-    checkedBy: grnData?.created_by ?? '',
+    checkedBy: grnData?.created_by !== undefined ? String(grnData.created_by) : '',
   });
 
-  // If editing, skip fetch and rely on existing GRN data
   useEffect(() => {
-    if (!grnData && formData.virNumber) {
-      getVIRDetailsById()
-        .then((details) => setVirDetails(details))
-        .catch(() => {
-          setVirDetails(null);
-          toast.error('Failed to fetch VIR details');
-        });
-    } else if (grnData) {
-      // You could hydrate virDetails directly from grnData if needed
+    if (grnData) {
       setVirDetails({
-        id: grnData.vir_number,
+        id: grnData.vir_id ?? 0,
+        virNumber: grnData.vir_number,
         productName: grnData.product_name,
         vendorName: grnData.vendor_name,
         date: grnData.invoice_date,
         remarks: grnData.remarks ?? '',
         productImage: grnData.productImage ?? '',
       });
+      return;
+    }
+
+    if (formData.virNumber) {
+      getVIRDetailsById(formData.virNumber)
+        .then((vir) => setVirDetails(virToDetails(vir)))
+        .catch(() => {
+          setVirDetails(null);
+          toast.error('Failed to fetch VIR details');
+        });
+    } else {
+      setVirDetails(null);
     }
   }, [formData.virNumber, grnData]);
 
+  // Completed VIRs for selection (create mode)
   useEffect(() => {
-    if (!grnData) {
-      getCompletedVIRs()
-        .then(setCompletedVIRs)
-        .catch(() => {
-          toast.error('Failed to fetch completed VIRs');
-        });
-    }
+    if (grnData) return;
+    getCompletedVIRs()
+      .then((list) => setCompletedVIRs(list.map(virToDetails)))
+      .catch(() => toast.error('Failed to fetch completed VIRs'));
   }, [grnData]);
-
-  console.log('grn to edit', grnData);
-
-  console.log('formData', formData);
 
   const updateForm = (key: keyof typeof formData, value: string) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -74,9 +81,7 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-        onClose();
-      }
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) onClose();
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -104,7 +109,7 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
 
     const payload = {
       virNumber: formData.virNumber,
-      containerQuantity: parseInt(formData.containerQty),
+      containerQuantity: parseInt(formData.containerQty, 10),
       quantity: parseFloat(formData.quantity),
       invoice: formData.invoiceNo,
       invoiceDate: formData.invoiceDate,
@@ -113,7 +118,7 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
       createdBy: formData.checkedBy,
     };
 
-    console.log(payload);
+    console.log('GRN payload', payload);
 
     try {
       // await createGRN(payload);
@@ -144,15 +149,15 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
             <div className="flex flex-nowrap space-x-4 overflow-x-auto pb-2">
               {completedVIRs.map((vir) => (
                 <div
-                  key={vir.id}
-                  onClick={() => updateForm('virNumber', vir.id)}
+                  key={vir.virNumber}
+                  onClick={() => updateForm('virNumber', vir.virNumber)}
                   className={`flex-shrink-0 w-48 p-3 border rounded cursor-pointer transition ${
-                    formData.virNumber === vir.id
+                    formData.virNumber === vir.virNumber
                       ? 'border-blue-500 bg-blue-500 text-white'
                       : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-current'
                   }`}
                 >
-                  <div className="text-sm font-semibold">VIR {vir.id}</div>
+                  <div className="text-sm font-semibold">{vir.virNumber}</div>
                   <div className="text-xs">{vir.productName}</div>
                   <div className="text-xs">{vir.vendorName}</div>
                   <div className="text-xs">{vir.date}</div>
@@ -240,7 +245,6 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
   );
 };
 
-// Helper inputs (you can define these in separate components if needed)
 const Input = ({
   label,
   value,

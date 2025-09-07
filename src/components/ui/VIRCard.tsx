@@ -1,16 +1,19 @@
+// src/components/ui/VIRCard.tsx
 import { cn } from '@/utils/utils';
 
 interface VIRCardProps {
   id: number;
+  vir_number?: string; // NEW
   vendorId: string;
   productId: string;
-  status: 'pending verification' | 'verified';
+  status: string;
   remarks: string;
   imageUrl?: string;
   checklist?: Record<string, 'yes' | 'no' | 'na'>;
   createdAt?: string;
   className?: string;
   verifiedBy?: string;
+  verifiedAt?: string;
 }
 
 const statusColorMap: Record<VIRCardProps['status'], string> = {
@@ -20,14 +23,16 @@ const statusColorMap: Record<VIRCardProps['status'], string> = {
 
 export const VIRCard = ({
   id,
+  vir_number,
   createdAt,
   vendorId,
   productId,
   className,
   verifiedBy,
+  verifiedAt,
   imageUrl,
+  status,
 }: VIRCardProps) => {
-  const status = verifiedBy ? 'verified' : 'pending verification';
   return (
     <div
       className={cn(
@@ -52,11 +57,19 @@ export const VIRCard = ({
             {status}
           </span>
         </div>
-        <p className="text-sm text-foreground">VIR No: {id}</p>
+        <p className="text-sm text-foreground">VIR No: {vir_number ?? id}</p>
         <p className="text-sm">
           <span className="text-foreground">Date:</span>{' '}
           {createdAt ? new Date(createdAt).toDateString() : ''}
         </p>
+        {verifiedBy && (
+          <p className="text-xs text-foreground/70">
+            Verified By: <span className="font-medium">{verifiedBy}</span> Verified At:
+            <span className="font-medium">
+              {verifiedAt ? new Date(verifiedAt).toDateString() : ''}
+            </span>
+          </p>
+        )}
       </div>
     </div>
   );

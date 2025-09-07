@@ -1,27 +1,17 @@
+// src/components/forms/VIRFormModal.tsx
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import type { VIR } from '@/types/vir';
+import axios from 'axios';
 
 const baseURL = import.meta.env.VITE_BACKEND_URL;
 
 interface VIRFormModalProps {
   onClose: () => void;
-  virData?: {
-    id: number;
-    vendorId: string;
-    productId: string;
-    status: 'pending verification' | 'verified';
-    remarks: string;
-    doneBy?: string;
-    imageUrl?: string;
-    checklist?: Record<string, 'yes' | 'no' | 'na'>;
-    createdBy?: string;
-    createdAt?: string;
-    verifiedBy?: string;
-    verifiedAt?: string;
-  };
+  virData?: VIR; // undefined/null => create; VIR => verify/view
 }
 
 const checklistQuestions = [
@@ -42,67 +32,62 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
   const { authUser } = useAuthContext();
   const modalRef = useRef<HTMLDivElement | null>(null);
 
-  // Form state
-  const [vendor, setVendor] = useState(virData?.vendorId || '');
-  const [product, setProduct] = useState(virData?.productId || '');
-  const [remarks, setRemarks] = useState(virData?.remarks || '');
+  const mode: 'create' | 'verify' | 'view' = !virData
+    ? 'create'
+    : virData.status === 'completed'
+      ? 'view'
+      : 'verify';
+
+  // state
+
+  console.log(virData);
+
+  const [vendor, setVendor] = useState<string>(virData ? String(virData.vendor_id) : '');
+  const [product, setProduct] = useState<string>(virData ? String(virData.product_id) : '');
+  const [remarks, setRemarks] = useState<string>(virData?.remarks || '');
   const [checklist, setChecklist] = useState<Record<string, 'yes' | 'no' | 'na'>>(
-    virData?.checklist || {}
+    (virData?.checklist as Record<string, 'yes' | 'no' | 'na'>) || {}
   );
 
-  const isVerification = virData?.id !== undefined;
+  const readOnly = mode !== 'create';
 
   const handleSubmit = async () => {
     try {
-      if (isVerification) {
-        await fetch('/api/verify-vir', {
-          method: 'POST',
-          body: JSON.stringify({
-            remarks,
-            checklist,
-            verifiedBy: authUser,
-            verifiedAt: new Date().toISOString(),
-          }),
-        });
+      if (mode === 'verify') {
+        await axios.patch(
+          `${baseURL}/vir/verify/${virData?.vir_number}`,
+          {
+            checkedBy: { data: authUser },
+            checkedAt: new Date().toISOString(),
+          },
+          { withCredentials: true }
+        );
         toast.success('VIR successfully verified');
-      } else {
-        await fetch(`${baseURL}/vir/create`, {
-          method: 'POST',
-          credentials: 'include',
-          body: JSON.stringify({
+      } else if (mode === 'create') {
+        await axios.post(
+          `${baseURL}/vir/create`,
+          {
             vendor,
             product,
             remarks,
             checklist,
-            createdBy: authUser,
+            createdBy: { data: authUser },
             createdAt: new Date().toISOString(),
-          }),
-        });
+          },
+          { withCredentials: true }
+        );
         toast.success('VIR successfully created');
       }
-      console.log(
-        'virData',
-        JSON.stringify({
-          vendor,
-          product,
-          remarks,
-          checklist,
-          createdBy: authUser,
-          createdAt: new Date().toISOString(),
-        })
-      );
       onClose();
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'An unexpected error occurred';
-      toast.error(`Failed to ${isVerification ? 'verify' : 'create'} VIR: ${errorMsg}`);
+      const errorMsg = (err as unknown) || 'An unexpected error occurred';
+      toast.error(`Failed to ${mode === 'verify' ? 'verify' : 'create'} VIR: ${errorMsg}`);
     }
   };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-        onClose();
-      }
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) onClose();
     };
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -121,8 +106,17 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
         ref={modalRef}
         className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative"
       >
-        <h2 className="text-xl font-bold mb-4">{isVerification ? 'Verify VIR' : 'Create VIR'}</h2>
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-600 hover:text-black">
+        <h2 className="text-xl font-bold mb-1">
+          {mode === 'create' ? 'Create VIR' : mode === 'verify' ? 'Verify VIR' : 'View VIR'}
+        </h2>
+        {virData?.vir_number && (
+          <p className="text-sm text-gray-500 mb-3">VIR No: {virData.vir_number}</p>
+        )}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-600 hover:text-black"
+          aria-label="Close"
+        >
           <X className="w-5 h-5" />
         </button>
 
@@ -134,11 +128,11 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
               value={vendor}
               onChange={(e) => setVendor(e.target.value)}
               className="w-full border rounded px-3 py-2"
-              disabled={isVerification}
+              disabled={readOnly}
             >
               <option value="">Select Vendor</option>
-              <option>ABC Ltd.</option>
-              <option>XYZ Enterprises</option>
+              <option value="ABC Ltd.">ABC Ltd.</option>
+              <option value="XYZ Enterprises">XYZ Enterprises</option>
             </select>
           </div>
           <div>
@@ -147,11 +141,11 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
               value={product}
               onChange={(e) => setProduct(e.target.value)}
               className="w-full border rounded px-3 py-2"
-              disabled={isVerification}
+              disabled={readOnly}
             >
               <option value="">Select Product</option>
-              <option>Chilli Powder</option>
-              <option>Wheat Flour</option>
+              <option value="chilli powder">Chilli Powder</option>
+              <option value="Wheat Flour">Wheat Flour</option>
             </select>
           </div>
         </div>
@@ -162,7 +156,7 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
           {checklistQuestions.map((q) => (
             <div key={q} className="space-y-2">
               <label className="block text-sm font-medium">{q}</label>
-              <div className="flex gap-8 flex-wrap">
+              <div className="flex gap-8 flex-wrap" role="radiogroup" aria-label={q}>
                 {(['yes', 'no', 'na'] as const).map((opt) => (
                   <label
                     key={opt}
@@ -173,7 +167,7 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
                       name={q}
                       className="hidden"
                       checked={checklist[q] === opt}
-                      disabled={isVerification}
+                      disabled={readOnly}
                       onChange={() => setChecklist((prev) => ({ ...prev, [q]: opt }))}
                     />
                     {opt.toUpperCase()}
@@ -190,48 +184,38 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
               rows={3}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-              disabled={isVerification}
+              disabled={readOnly}
               className="w-full border rounded px-3 py-2 text-gray-600"
               placeholder="Add remarks if any"
             />
           </div>
         </div>
 
-        {/* Verification Info */}
-        {isVerification && (
-          <>
-            <div className="flex items-center gap-2 my-4">
-              <label className="block text-sm font-medium ">Created By:</label>
-              {virData?.createdBy ? (
-                <>
-                  <span className="text-sm text-green-600">{virData?.createdBy}</span>
-                  <span className="text-xs text-gray-500">
-                    ({new Date(virData.createdAt!).toLocaleString()})
-                  </span>
-                </>
-              ) : (
-                <span className="text-sm font-bold italic text-yellow-400">Pending</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="block text-sm font-medium ">Verified By:</label>
-              {virData?.verifiedBy ? (
-                <>
-                  <span className="text-sm text-green-600">{virData?.verifiedBy}</span>
-                  <span className="text-xs text-gray-500">
-                    ({new Date(virData.verifiedAt!).toLocaleString()})
-                  </span>
-                </>
-              ) : (
-                <span className="text-sm font-bold italic text-yellow-400">Pending</span>
-              )}
-            </div>
-          </>
+        {/* Meta info */}
+        {(virData?.created_at || virData?.checked_at) && (
+          <div className="mt-4 space-y-1 text-sm text-gray-500">
+            {virData?.created_at && (
+              <div>
+                <span className="font-medium">Created At: </span>
+                {new Date(virData.created_at).toLocaleString()}
+              </div>
+            )}
+            {virData?.checked_at && (
+              <div>
+                <span className="font-medium">Verified At: </span>
+                {new Date(virData.checked_at).toLocaleString()}
+              </div>
+            )}
+          </div>
         )}
 
-        <div className="mt-6 text-right">
-          <Button onClick={handleSubmit}>{isVerification ? 'Verify VIR' : 'Create VIR'}</Button>
-        </div>
+        {mode !== 'view' && (
+          <div className="mt-6 text-right">
+            <Button onClick={handleSubmit}>
+              {mode === 'verify' ? 'Verify VIR' : 'Create VIR'}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
