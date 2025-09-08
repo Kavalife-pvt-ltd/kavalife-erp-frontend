@@ -35,7 +35,7 @@ export interface GRN {
   vir_id?: number; // <-- add
   remarks?: string; // <-- add
   productImage?: string; // <-- add
-  checked_by?: string; // <-- add
+  checked_by?: number; // <-- add
   qaqcStatus: 'not_created' | 'created' | 'approved';
   status: 'pending' | 'in-progress' | 'completed';
 }

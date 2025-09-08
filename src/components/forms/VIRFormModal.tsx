@@ -1,17 +1,18 @@
 // src/components/forms/VIRFormModal.tsx
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import type { VIR } from '@/types/vir';
 import axios from 'axios';
+import { useBootstrapStore } from '@/store/bootstrap';
 
 const baseURL = import.meta.env.VITE_BACKEND_URL;
 
 interface VIRFormModalProps {
   onClose: () => void;
-  virData?: VIR; // undefined/null => create; VIR => verify/view
+  virData?: VIR;
 }
 
 const checklistQuestions = [
@@ -26,65 +27,87 @@ const checklistQuestions = [
   'Physical verification for quantity is ok',
   'Received Food grade certificate',
   'Material received in Damage / Breakage / Leakage condition',
-];
+] as const;
 
 export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
   const { authUser } = useAuthContext();
   const modalRef = useRef<HTMLDivElement | null>(null);
 
-  const mode: 'create' | 'verify' | 'view' = !virData
-    ? 'create'
-    : virData.status === 'completed'
-      ? 'view'
-      : 'verify';
+  // global maps (id -> full entity)
+  const usersById = useBootstrapStore((s) => s.userById);
+  const vendorsById = useBootstrapStore((s) => s.vendorById);
+  const productsById = useBootstrapStore((s) => s.productById);
 
-  // state
-
-  console.log(virData);
-
-  const [vendor, setVendor] = useState<string>(virData ? String(virData.vendor_id) : '');
-  const [product, setProduct] = useState<string>(virData ? String(virData.product_id) : '');
-  const [remarks, setRemarks] = useState<string>(virData?.remarks || '');
-  const [checklist, setChecklist] = useState<Record<string, 'yes' | 'no' | 'na'>>(
-    (virData?.checklist as Record<string, 'yes' | 'no' | 'na'>) || {}
-  );
-
+  // mode + readOnly
+  const mode = useMemo<'create' | 'verify' | 'view'>(() => {
+    if (!virData) return 'create';
+    return virData.status === 'completed' ? 'view' : 'verify';
+  }, [virData]);
   const readOnly = mode !== 'create';
+
+  // Local state: ALWAYS store IDs in state
+  const [vendorId, setVendorId] = useState<string>(
+    virData?.vendor_id != null ? String(virData.vendor_id) : ''
+  );
+  const [productId, setProductId] = useState<string>(
+    virData?.product_id != null ? String(virData.product_id) : ''
+  );
+  const [remarks, setRemarks] = useState<string>(virData?.remarks ?? '');
+  const [checklist, setChecklist] = useState<Record<string, 'yes' | 'no' | 'na'>>(
+    (virData?.checklist as Record<string, 'yes' | 'no' | 'na'>) ?? {}
+  );
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     try {
-      if (mode === 'verify') {
+      setSubmitting(true);
+
+      if (mode === 'verify' && virData?.vir_number) {
         await axios.patch(
-          `${baseURL}/vir/verify/${virData?.vir_number}`,
+          `${baseURL}/vir/verify/${virData.vir_number}`,
           {
-            checkedBy: { data: authUser },
+            checkedBy: { data: authUser }, // backend expects { data: User }
             checkedAt: new Date().toISOString(),
           },
           { withCredentials: true }
         );
         toast.success('VIR successfully verified');
       } else if (mode === 'create') {
+        // Backend currently expects NAMES, not IDs. Translate here:
+        const vendorName = vendorsById[Number(vendorId)]?.name ?? vendorId;
+        const productName = productsById[Number(productId)]?.name ?? productId;
+
+        if (!vendorName || !productName) {
+          toast.error('Please select both vendor and product');
+          setSubmitting(false);
+          return;
+        }
+
         await axios.post(
           `${baseURL}/vir/create`,
           {
-            vendor,
-            product,
+            vendor: vendorName,
+            product: productName,
             remarks,
             checklist,
-            createdBy: { data: authUser },
+            createdBy: { data: authUser }, // backend expects { data: User }
             createdAt: new Date().toISOString(),
           },
           { withCredentials: true }
         );
         toast.success('VIR successfully created');
       }
+
       onClose();
-    } catch (err: unknown) {
-      const errorMsg = (err as unknown) || 'An unexpected error occurred';
-      toast.error(`Failed to ${mode === 'verify' ? 'verify' : 'create'} VIR: ${errorMsg}`);
+    } catch (err) {
+      console.log(err);
+      toast.error(`Failed to ${mode === 'verify' ? 'verify' : 'create'} VIR`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  // close on outside click / Esc
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(e.target as Node)) onClose();
@@ -99,6 +122,21 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
       document.removeEventListener('keydown', handleEsc);
     };
   }, [onClose]);
+
+  // Helpers to render label strings from IDs
+  const createdByLabel =
+    virData?.created_by && usersById[virData.created_by]
+      ? usersById[virData.created_by].username
+      : virData?.created_by
+        ? String(virData.created_by)
+        : 'N/A';
+
+  const checkedByLabel =
+    virData?.checked_by && usersById[virData.checked_by]
+      ? usersById[virData.checked_by].username
+      : virData?.checked_by
+        ? String(virData.checked_by)
+        : 'N/A';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
@@ -123,29 +161,42 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
         {/* Vendor & Product */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-600">
           <div>
-            <label className="block text-sm font-medium">Vendor</label>
+            <label htmlFor="vendor" className="block text-sm font-medium">
+              Vendor
+            </label>
             <select
-              value={vendor}
-              onChange={(e) => setVendor(e.target.value)}
+              id="vendor"
+              value={vendorId}
+              onChange={(e) => setVendorId(e.target.value)}
               className="w-full border rounded px-3 py-2"
               disabled={readOnly}
             >
               <option value="">Select Vendor</option>
-              <option value="ABC Ltd.">ABC Ltd.</option>
-              <option value="XYZ Enterprises">XYZ Enterprises</option>
+              {Object.values(vendorsById).map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                </option>
+              ))}
             </select>
           </div>
+
           <div>
-            <label className="block text-sm font-medium">Product</label>
+            <label htmlFor="product" className="block text-sm font-medium">
+              Product
+            </label>
             <select
-              value={product}
-              onChange={(e) => setProduct(e.target.value)}
+              id="product"
+              value={productId}
+              onChange={(e) => setProductId(e.target.value)}
               className="w-full border rounded px-3 py-2"
               disabled={readOnly}
             >
               <option value="">Select Product</option>
-              <option value="chilli powder">Chilli Powder</option>
-              <option value="Wheat Flour">Wheat Flour</option>
+              {Object.values(productsById).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -153,34 +204,48 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
         {/* Checklist */}
         <div className="mt-6 space-y-4">
           <h3 className="text-md font-semibold">Checklist</h3>
-          {checklistQuestions.map((q) => (
-            <div key={q} className="space-y-2">
-              <label className="block text-sm font-medium">{q}</label>
-              <div className="flex gap-8 flex-wrap" role="radiogroup" aria-label={q}>
-                {(['yes', 'no', 'na'] as const).map((opt) => (
-                  <label
-                    key={opt}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-lg border cursor-pointer ${checklist[q] === opt ? 'bg-blue-600 text-white' : ''}`}
-                  >
-                    <input
-                      type="radio"
-                      name={q}
-                      className="hidden"
-                      checked={checklist[q] === opt}
-                      disabled={readOnly}
-                      onChange={() => setChecklist((prev) => ({ ...prev, [q]: opt }))}
-                    />
-                    {opt.toUpperCase()}
-                  </label>
-                ))}
+
+          {checklistQuestions.map((q) => {
+            const value = checklist[q] ?? 'na';
+            return (
+              <div key={q} className="space-y-2">
+                <label className="block text-sm font-medium">{q}</label>
+                <div className="flex gap-8 flex-wrap" role="radiogroup" aria-label={q}>
+                  {(['yes', 'no', 'na'] as const).map((opt) => (
+                    <label
+                      key={opt}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-lg border cursor-pointer ${
+                        value === opt ? 'bg-blue-600 text-white' : ''
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name={q}
+                        className="hidden"
+                        checked={value === opt}
+                        disabled={readOnly}
+                        onChange={() =>
+                          setChecklist((prev) => ({
+                            ...prev,
+                            [q]: opt,
+                          }))
+                        }
+                      />
+                      {opt.toUpperCase()}
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Remarks */}
           <div className="mt-4">
-            <label className="block text-sm font-medium">Remarks</label>
+            <label htmlFor="remarks" className="block text-sm font-medium">
+              Remarks
+            </label>
             <textarea
+              id="remarks"
               rows={3}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
@@ -198,20 +263,24 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
               <div>
                 <div>
                   <span className="font-medium">Created By: </span>
-                  {virData.created_by || 'N/A'}
+                  {createdByLabel}
                 </div>
-                <span className="font-medium">Created At: </span>
-                {new Date(virData.created_at).toLocaleString()}
+                <div>
+                  <span className="font-medium">Created At: </span>
+                  {new Date(virData.created_at).toLocaleString()}
+                </div>
               </div>
             )}
             {virData?.checked_at && (
               <div>
                 <div>
                   <span className="font-medium">Checked By: </span>
-                  {virData.checked_by || 'N/A'}
+                  {checkedByLabel}
                 </div>
-                <span className="font-medium">Verified At: </span>
-                {new Date(virData.checked_at).toLocaleString()}
+                <div>
+                  <span className="font-medium">Verified At: </span>
+                  {new Date(virData.checked_at).toLocaleString()}
+                </div>
               </div>
             )}
           </div>
@@ -219,8 +288,8 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
 
         {mode !== 'view' && (
           <div className="mt-6 text-right">
-            <Button onClick={handleSubmit}>
-              {mode === 'verify' ? 'Verify VIR' : 'Create VIR'}
+            <Button onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'Please wait…' : mode === 'verify' ? 'Verify VIR' : 'Create VIR'}
             </Button>
           </div>
         )}

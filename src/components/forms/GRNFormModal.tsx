@@ -7,6 +7,7 @@ import type { GRN } from '@/types/grn';
 import type { VIR, VIRDetails } from '@/types/vir';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { createGRN, updateGRN } from '@/api/grn';
+import { useBootstrapStore } from '@/store/bootstrap';
 
 const virToDetails = (vir: VIR): VIRDetails => ({
   id: vir.id,
@@ -26,6 +27,7 @@ interface GRNFormModalProps {
 export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const { authUser } = useAuthContext();
+  const users = useBootstrapStore((s) => s.userById);
 
   const [virDetails, setVirDetails] = useState<VIRDetails | null>(null);
   const [completedVIRs, setCompletedVIRs] = useState<VIRDetails[]>([]);
@@ -37,13 +39,12 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
     containerQty: grnData?.container_qty?.toString() ?? '',
     quantity: grnData?.quantity?.toString() ?? '',
     invoiceNo: grnData?.invoice?.toString() ?? '',
-    invoiceDate: grnData?.invoice_date ?? '',
+    invoiceDate: grnData?.invoice_date
+      ? grnData.invoice_date.slice(0, 10)
+      : new Date().toISOString().slice(0, 10),
     invoiceImg: grnData?.invoice_img ?? '',
     packagingStatus: grnData?.packaging_status ?? '',
   });
-
-  console.log(grnData);
-  console.log(formData);
 
   useEffect(() => {
     if (grnData) {
@@ -176,11 +177,13 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
 
         {virDetails && (
           <div className="bg-gray-50 dark:bg-gray-800 border rounded-lg p-4 flex mb-6">
-            <img
-              src={virDetails.productImage}
-              alt={virDetails.productName}
-              className="w-24 h-24 object-cover rounded mr-4"
-            />
+            {virDetails?.productImage ? (
+              <img
+                src={virDetails.productImage}
+                alt={virDetails.productName}
+                className="w-24 h-24 object-cover rounded mr-4"
+              />
+            ) : null}
             <div>
               <div className="font-semibold text-lg">{virDetails.productName}</div>
               <div className="text-sm text-gray-600 dark:text-gray-300">
@@ -230,14 +233,12 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
               options={['packed', 'loose', 'damaged']}
             />
 
-            {grnData?.checked_by && (
+            {grnData && (
               <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
                 <div className="flex items-center gap-2">
                   <span className="font-medium">Done By:</span>
-                  {grnData?.checked_by ? (
-                    <span className="text-green-600">{grnData.checked_by}</span>
-                  ) : grnData?.created_by !== undefined ? (
-                    <span>{String(grnData.created_by)}</span>
+                  {grnData.created_by && users[grnData.created_by] ? (
+                    <span className="text-green-600">{users[grnData.created_by].username}</span>
                   ) : (
                     <span className="italic text-yellow-600">Pending</span>
                   )}
@@ -245,10 +246,8 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
 
                 <div className="flex items-center gap-2">
                   <span className="font-medium">Checked By:</span>
-                  {grnData && grnData.checked_by ? (
-                    <span className="text-green-600">{grnData.checked_by}</span>
-                  ) : grnData?.checked_by !== undefined ? (
-                    <span>{String(grnData.checked_by)}</span>
+                  {grnData.checked_by && users[grnData.checked_by] ? (
+                    <span className="text-green-600">{users[grnData.checked_by].username}</span>
                   ) : (
                     <span className="italic text-yellow-600">Pending</span>
                   )}

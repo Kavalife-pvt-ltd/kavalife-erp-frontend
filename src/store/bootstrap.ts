@@ -1,39 +1,31 @@
 // src/store/bootstrap.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import {
-  fetchAllProducts,
-  fetchAllUsers,
-  fetchAllVendors,
-  Product, // your full product shape (not just id/name)
-  UserLite, // or your full user shape
-  Vendor, // your full vendor shape
-} from '@/api/bootstrap';
+import { fetchAllProducts, fetchAllUsers, fetchAllVendors } from '@/api/bootstrap';
+import type { Vendor, Product, UserLite } from '@/types/bootstrap';
 
 type Id = number;
 
 interface BootstrapState {
-  // Full objects
+  // full lists
   vendors: Vendor[];
   products: Product[];
   users: UserLite[];
 
-  // Normalized maps with FULL objects as values
+  // normalized maps (id -> full object)
   vendorById: Record<Id, Vendor>;
   productById: Record<Id, Product>;
   userById: Record<Id, UserLite>;
 
-  // status
   loaded: boolean;
   loading: boolean;
   error?: string;
 
-  // actions
-  load: () => Promise<void>;
-  refresh: () => Promise<void>;
+  load: () => Promise<void>; // one-time after login/app mount
+  refresh: () => Promise<void>; // manual refresh button etc.
   clear: () => void;
 
-  // getters (return FULL objects)
+  // getters (fast lookups, return FULL records)
   getVendor: (id?: Id | null) => Vendor | undefined;
   getProduct: (id?: Id | null) => Product | undefined;
   getUser: (id?: Id | null) => UserLite | undefined;
@@ -72,7 +64,7 @@ export const useBootstrapStore = create<BootstrapState>()(
 
       load: async () => {
         const s = get();
-        if (s.loading || s.loaded) return;
+        if (s.loading || s.loaded) return; // avoid duplicate loads
         set({ loading: true, error: undefined });
         try {
           const [vendors, products, users] = await Promise.all([
@@ -97,8 +89,8 @@ export const useBootstrapStore = create<BootstrapState>()(
             error: undefined,
           });
         } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Failed to load bootstrap data';
-          set({ loading: false, error: msg });
+          const message = e instanceof Error ? e.message : 'Failed to load bootstrap data';
+          set({ loading: false, error: message });
         }
       },
 
@@ -110,7 +102,6 @@ export const useBootstrapStore = create<BootstrapState>()(
             fetchAllProducts(),
             fetchAllUsers(),
           ]);
-
           const vendorById = Object.fromEntries(vendors.map((v) => [v.id, v]));
           const productById = Object.fromEntries(products.map((p) => [p.id, p]));
           const userById = Object.fromEntries(users.map((u) => [u.id, u]));
@@ -127,15 +118,15 @@ export const useBootstrapStore = create<BootstrapState>()(
             error: undefined,
           });
         } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Failed to refresh bootstrap data';
-          set({ loading: false, error: msg });
+          const message = e instanceof Error ? e.message : 'Failed to refresh bootstrap data';
+          set({ loading: false, error: message });
         }
       },
     }),
     {
       name: 'bootstrap-cache',
-      storage: createJSONStorage(() => localStorage), // persist full data
-      version: 1, // bump this if you change shapes to force a reset
+      storage: createJSONStorage(() => localStorage),
+      version: 1, // bump to reset when type shapes change
     }
   )
 );
