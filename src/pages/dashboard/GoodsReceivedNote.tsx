@@ -14,8 +14,6 @@ export const GoodsReceivedNote = () => {
   const [grns, setGRNs] = useState<GRN[]>([]);
 
   useEffect(() => {
-    console.log('Fetching GRNs...');
-
     fetchGRNs()
       .then(setGRNs)
       .catch((err: unknown) => {
@@ -32,7 +30,6 @@ export const GoodsReceivedNote = () => {
     setModalType('edit');
   };
   const openQAQC = (grn: GRN) => {
-    console.log('===============', grn);
     setGrnData(grn);
     setModalType('qaqc');
   };
@@ -73,7 +70,7 @@ export const GoodsReceivedNote = () => {
         <QAQCModal
           grnId={grnData.id}
           grnNumber={grnData.grn_number}
-          mode={grnData.qaqcStatus === 'not_created' ? 'create' : 'view'}
+          mode={!grnData.qaqcStatus || grnData.qaqcStatus === 'not_created' ? 'create' : 'view'}
           onClose={closeAll}
         />
       )}

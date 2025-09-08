@@ -10,3 +10,21 @@ export async function fetchGRNs(): Promise<GRN[]> {
   }
   return response.data.data;
 }
+
+export async function createGRN(grnData: Partial<GRN>): Promise<GRN> {
+  const response = await axios.post(`${baseURL}/grn/create`, grnData, { withCredentials: true });
+  if (!response) {
+    throw new Error('Failed to create GRN');
+  }
+  return response.data.data;
+}
+
+export async function updateGRN(id: number, grnData: Partial<GRN>): Promise<GRN> {
+  const response = await axios.put(`${baseURL}/grn/update/${id}`, grnData, {
+    withCredentials: true,
+  });
+  if (!response) {
+    throw new Error('Failed to update GRN');
+  }
+  return response.data.data;
+}

@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'react-hot-toast';
 import type { GRN } from '@/types/grn';
 import type { VIR, VIRDetails } from '@/types/vir';
+import { useAuthContext } from '@/hooks/useAuthContext';
+import { createGRN, updateGRN } from '@/api/grn';
 
 const virToDetails = (vir: VIR): VIRDetails => ({
   id: vir.id,
@@ -23,6 +25,7 @@ interface GRNFormModalProps {
 
 export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const { authUser } = useAuthContext();
 
   const [virDetails, setVirDetails] = useState<VIRDetails | null>(null);
   const [completedVIRs, setCompletedVIRs] = useState<VIRDetails[]>([]);
@@ -34,12 +37,13 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
     containerQty: grnData?.container_qty?.toString() ?? '',
     quantity: grnData?.quantity?.toString() ?? '',
     invoiceNo: grnData?.invoice?.toString() ?? '',
-    invoiceDate: grnData?.invoice_date ?? new Date().toISOString().slice(0, 10),
+    invoiceDate: grnData?.invoice_date ?? '',
     invoiceImg: grnData?.invoice_img ?? '',
     packagingStatus: grnData?.packaging_status ?? '',
-    doneBy: grnData?.doneBy ?? '',
-    checkedBy: grnData?.created_by !== undefined ? String(grnData.created_by) : '',
   });
+
+  console.log(grnData);
+  console.log(formData);
 
   useEffect(() => {
     if (grnData) {
@@ -115,13 +119,16 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
       invoiceDate: formData.invoiceDate,
       invoiceImg: formData.invoiceImg,
       packagingStatus: formData.packagingStatus,
-      createdBy: formData.checkedBy,
+      createdBy: authUser?.id,
     };
 
     console.log('GRN payload', payload);
 
     try {
-      // await createGRN(payload);
+      if (grnData?.grn_number) {
+        await updateGRN(grnData.id, payload);
+      }
+      await createGRN(payload);
       toast.success('GRN created successfully');
       setTimeout(onClose, 500);
     } catch {
@@ -222,16 +229,32 @@ export const GRNFormModal = ({ onClose, grnData }: GRNFormModalProps) => {
               onChange={(v) => updateForm('packagingStatus', v)}
               options={['packed', 'loose', 'damaged']}
             />
-            <Input
-              label="Done By"
-              value={formData.doneBy}
-              onChange={(v) => updateForm('doneBy', v)}
-            />
-            <Input
-              label="Checked By"
-              value={formData.checkedBy}
-              onChange={(v) => updateForm('checkedBy', v)}
-            />
+
+            {grnData?.checked_by && (
+              <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Done By:</span>
+                  {grnData?.checked_by ? (
+                    <span className="text-green-600">{grnData.checked_by}</span>
+                  ) : grnData?.created_by !== undefined ? (
+                    <span>{String(grnData.created_by)}</span>
+                  ) : (
+                    <span className="italic text-yellow-600">Pending</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Checked By:</span>
+                  {grnData && grnData.checked_by ? (
+                    <span className="text-green-600">{grnData.checked_by}</span>
+                  ) : grnData?.checked_by !== undefined ? (
+                    <span>{String(grnData.checked_by)}</span>
+                  ) : (
+                    <span className="italic text-yellow-600">Pending</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

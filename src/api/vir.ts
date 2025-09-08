@@ -6,9 +6,7 @@ const baseURL = import.meta.env.VITE_BACKEND_URL;
 // Get all VIRs
 export async function getAllVIRs(): Promise<VIR[]> {
   const url = `${baseURL}/vir/all`;
-  console.log('REQUEST URL', url);
   const resp = await axios.get(url, { withCredentials: true });
-  console.log('RAW data (as parsed by axios):', resp.data);
 
   return (resp.data?.data ?? resp.data) as VIR[];
 }

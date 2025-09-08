@@ -45,15 +45,21 @@ export const GRNCard = ({ grn, onClick, onQAQCClick, className }: GRNCardProps) 
       {/* QA/QC launcher */}
       {grn.qaqcStatus === 'not_created' ? (
         <button
-          onClick={() => onQAQCClick('create', grn)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onQAQCClick('create', grn);
+          }}
           className="absolute bottom-4 right-4 px-3 py-1 bg-yellow-600  text-white rounded hover:bg-yellow-700"
         >
           Create QA/QC
         </button>
       ) : (
         <button
-          onClick={() => onQAQCClick('qaqc', grn)}
-          className="absolute bottom-4 right-4 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+          onClick={(e) => {
+            e.stopPropagation();
+            onQAQCClick('qaqc', grn);
+          }}
+          className="absolute bottom-4 z-10 right-4 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
         >
           View QA/QC
         </button>

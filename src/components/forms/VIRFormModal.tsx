@@ -196,12 +196,20 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
           <div className="mt-4 space-y-1 text-sm text-gray-500">
             {virData?.created_at && (
               <div>
+                <div>
+                  <span className="font-medium">Created By: </span>
+                  {virData.created_by || 'N/A'}
+                </div>
                 <span className="font-medium">Created At: </span>
                 {new Date(virData.created_at).toLocaleString()}
               </div>
             )}
             {virData?.checked_at && (
               <div>
+                <div>
+                  <span className="font-medium">Checked By: </span>
+                  {virData.checked_by || 'N/A'}
+                </div>
                 <span className="font-medium">Verified At: </span>
                 {new Date(virData.checked_at).toLocaleString()}
               </div>

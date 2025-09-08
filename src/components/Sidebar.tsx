@@ -1,14 +1,6 @@
 // components/Sidebar.tsx
 import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  Home,
-  Package,
-  ListTodo,
-  ClipboardList,
-  Truck,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { Home, Package, ClipboardList, Truck, ChevronLeft, ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
 import Tooltip from './ui/Tooltip';
 
@@ -21,7 +13,6 @@ type SidebarProps = {
 const links = [
   { to: '/', label: 'Home', icon: Home },
   { to: '/inventory', label: 'Inventory', icon: Package },
-  { to: '/tasks', label: 'Tasks', icon: ListTodo },
   { to: '/vir', label: 'VIR', icon: ClipboardList },
   { to: '/grn', label: 'GRN', icon: Truck },
   { to: '/extraction', label: 'Extraction', icon: Truck },

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { loginUser } from '@/api/auth';
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { useBootstrapStore } from '@/store/bootstrap';
 
 const Login = () => {
   const isDev = import.meta.env.DEV;
@@ -17,7 +18,7 @@ const Login = () => {
     setLoading(true);
     try {
       const user = await loginUser(username, password);
-      console.log('user', user);
+      await useBootstrapStore.getState().load();
       setAuthUser(user.data);
       navigate('/');
     } catch (error: unknown) {

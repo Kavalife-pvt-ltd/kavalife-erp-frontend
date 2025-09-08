@@ -11,7 +11,7 @@ interface QAQCModalProps {
   onClose: () => void;
 }
 
-export const QAQCModal = ({ grnId, mode, onClose, grnNumber }: QAQCModalProps) => {
+export const QAQCModal = ({ mode, onClose, grnNumber }: QAQCModalProps) => {
   /** Section toggles **/
   const [openSampler, setOpenSampler] = useState(true);
   const [openQC, setOpenQC] = useState(true);
@@ -119,7 +119,7 @@ export const QAQCModal = ({ grnId, mode, onClose, grnNumber }: QAQCModalProps) =
         onSubmit={handleSubmit}
         className="relative bg-white dark:bg-gray-900 p-6 rounded-lg shadow-md w-[80vw] max-w-[80vw] max-h-[90vh] overflow-auto "
       >
-        <h2 className="text-2xl font-bold mb-4">QA/QC for GRN #{grnId}</h2>
+        <h2 className="text-2xl font-bold mb-4">QA/QC for {grnNumber}</h2>
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-600 hover:text-black">
           <X className="w-5 h-5" />
         </button>
@@ -136,22 +136,18 @@ export const QAQCModal = ({ grnId, mode, onClose, grnNumber }: QAQCModalProps) =
               <label className="block">
                 No. of containers sampled
                 <input
-                  type="number"
                   value={containersSampled}
                   onChange={(e) => setContainersSampled(+e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
-                  min={0}
                   disabled={mode === 'view'}
                 />
               </label>
               <label className="block">
                 Sampled quantity
                 <input
-                  type="number"
                   value={sampledQuantity}
                   onChange={(e) => setSampledQuantity(+e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
-                  min={0}
                   disabled={mode === 'view'}
                 />
               </label>
