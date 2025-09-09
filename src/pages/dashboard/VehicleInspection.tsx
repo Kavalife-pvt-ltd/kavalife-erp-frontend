@@ -60,7 +60,7 @@ export const VehicleInspection = () => {
     checklist: vir.checklist,
     createdAt: vir.created_at,
     verifiedBy: typeof vir.checked_by === 'number' ? String(vir.checked_by) : undefined,
-    VerifiedAt: vir.checked_at,
+    verifiedAt: vir.checked_at,
   });
 
   const openCreate = () => {

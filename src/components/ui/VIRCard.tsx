@@ -1,4 +1,5 @@
 // src/components/ui/VIRCard.tsx
+import { useBootstrapStore } from '@/store/bootstrap';
 import { cn } from '@/utils/utils';
 
 interface VIRCardProps {
@@ -33,6 +34,14 @@ export const VIRCard = ({
   imageUrl,
   status,
 }: VIRCardProps) => {
+  const usersById = useBootstrapStore((s) => s.userById);
+  let verifiedByDisplay: string | undefined;
+  if (verifiedBy !== undefined) {
+    const vbNum = typeof verifiedBy === 'number' ? verifiedBy : Number(verifiedBy);
+    verifiedByDisplay =
+      (Number.isFinite(vbNum) && usersById[vbNum]?.username) || String(verifiedBy);
+  }
+
   return (
     <div
       className={cn(
@@ -64,7 +73,7 @@ export const VIRCard = ({
         </p>
         {verifiedBy && (
           <p className="text-xs text-foreground/70">
-            Verified By: <span className="font-medium">{verifiedBy}</span> Verified At:
+            Verified By: <span className="font-medium">{verifiedByDisplay}</span> Verified At:{' '}
             <span className="font-medium">
               {verifiedAt ? new Date(verifiedAt).toDateString() : ''}
             </span>
