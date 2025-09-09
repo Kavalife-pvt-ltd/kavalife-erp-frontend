@@ -1,70 +1,97 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { QAQCData } from '@/types/grn';
 import { X } from 'lucide-react';
+import { createQAQCEntry, fetchQAQCEntry } from '@/api/qaqc';
 
 interface QAQCModalProps {
   grnId: number;
+  mode: 'create' | 'view';
+  grnNumber: string;
   existingData?: QAQCData;
   onClose: () => void;
 }
 
-export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
+export const QAQCModal = ({ mode, onClose, grnNumber }: QAQCModalProps) => {
   /** Section toggles **/
   const [openSampler, setOpenSampler] = useState(true);
   const [openQC, setOpenQC] = useState(true);
   const [openAssurance, setOpenAssurance] = useState(true);
 
   /** Sampler’s Comment **/
-  const [containersSampled, setContainersSampled] = useState<number>(
-    existingData?.containersSampled ?? 0
-  );
-  const [sampledQuantity, setSampledQuantity] = useState<number>(
-    existingData?.sampledQuantity ?? 0
-  );
-  const [sampledBy, setSampledBy] = useState<string>(existingData?.sampledBy ?? '');
-  const [sampledOn, setSampledOn] = useState<string>(
-    existingData?.sampledOn ?? new Date().toISOString().substr(0, 10)
-  );
+  const [containersSampled, setContainersSampled] = useState<number>(0);
+  const [sampledQuantity, setSampledQuantity] = useState<number>(0);
+  const [sampledBy, setSampledBy] = useState<string>('');
+  const [sampledOn, setSampledOn] = useState<string>(new Date().toISOString().substr(0, 10));
 
   /** QC Comment **/
-  const [arNumber, setArNumber] = useState<string>(existingData?.arNumber ?? '');
-  const [releaseDate, setReleaseDate] = useState<string>(
-    existingData?.releaseDate ?? new Date().toISOString().substr(0, 10)
-  );
-  const [potency, setPotency] = useState<string>(existingData?.potency ?? '');
-  const [moistureContent, setMoistureContent] = useState<string>(
-    existingData?.moistureContent ?? ''
-  );
-  const [yieldPercent, setYieldPercent] = useState<string>(existingData?.yieldPercent ?? '');
-  // derive status type
+  const [arNumber, setArNumber] = useState<string>('');
+  const [releaseDate, setReleaseDate] = useState<string>(new Date().toISOString().substr(0, 10));
+  const [potency, setPotency] = useState<string>('');
+  const [moistureContent, setMoistureContent] = useState<string>('');
+  const [yieldPercent, setYieldPercent] = useState<string>('');
   type Status = QAQCData['status'];
-  const [status, setStatus] = useState<Status>(existingData?.status ?? 'approved');
-  const [analystRemark, setAnalystRemark] = useState<string>(existingData?.analystRemark ?? '');
+  const [status, setStatus] = useState<Status>('approved');
+  const [analystRemark, setAnalystRemark] = useState<string>('');
 
   /** Assurance By **/
-  const [analysedBy, setAnalysedBy] = useState<string>(existingData?.analysedBy ?? '');
-  const [approvedBy, setApprovedBy] = useState<string>(existingData?.approvedBy ?? '');
+  const [analysedBy, setAnalysedBy] = useState<string>('');
+  const [approvedBy, setApprovedBy] = useState<string>('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (mode === 'view') {
+      fetchQAQCEntry(grnNumber)
+        .then((data) => {
+          if (data) {
+            setContainersSampled(data.containersSampled ?? 0);
+            setSampledQuantity(data.sampledQuantity ?? 0);
+            setSampledBy(data.sampledBy ?? '');
+            setSampledOn(data.sampledOn ?? new Date().toISOString().substr(0, 10));
+            setArNumber(data.arNumber ?? '');
+            setReleaseDate(data.releaseDate ?? new Date().toISOString().substr(0, 10));
+            setPotency(data.potency ?? '');
+            setMoistureContent(data.moistureContent ?? '');
+            setYieldPercent(data.yieldPercent ?? '');
+            setStatus(data.status ?? 'approved');
+            setAnalystRemark(data.analystRemark ?? '');
+            setAnalysedBy(data.analysedBy ?? '');
+            setApprovedBy(data.approvedBy ?? '');
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to fetch QAQC data', err);
+          alert('Failed to load QAQC data. Please try again.');
+        });
+    }
+  }, [mode, grnNumber]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload: QAQCData = {
-      containersSampled,
-      sampledQuantity,
-      sampledBy,
-      sampledOn,
-      arNumber,
-      releaseDate,
-      potency,
-      moistureContent,
-      yieldPercent,
-      status,
-      analystRemark,
-      analysedBy,
-      approvedBy,
-    };
-    // TODO: call QA/QC API with payload
-    console.log('Submitting QAQC for', grnId, payload);
-    onClose();
+    if (mode === 'create') {
+      const payload = {
+        processType: 'grn',
+        processRef: grnNumber,
+        containersSampled,
+        sampledQuantity,
+        sampledBy,
+        sampledOn,
+        arNumber,
+        releaseDate,
+        potency,
+        moistureContent,
+        yieldPercent,
+        status,
+        analystRemark,
+        analysedBy,
+        approvedBy,
+      };
+      try {
+        await createQAQCEntry(payload);
+        onClose();
+      } catch (err) {
+        console.error('Failed to submit QAQC', err);
+        alert('Failed to submit QAQC. Please try again.');
+      }
+    }
   };
 
   /** Collapsible Section Header **/
@@ -92,7 +119,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
         onSubmit={handleSubmit}
         className="relative bg-white dark:bg-gray-900 p-6 rounded-lg shadow-md w-[80vw] max-w-[80vw] max-h-[90vh] overflow-auto "
       >
-        <h2 className="text-2xl font-bold mb-4">QA/QC for GRN #{grnId}</h2>
+        <h2 className="text-2xl font-bold mb-4">QA/QC for {grnNumber}</h2>
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-600 hover:text-black">
           <X className="w-5 h-5" />
         </button>
@@ -109,21 +136,19 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
               <label className="block">
                 No. of containers sampled
                 <input
-                  type="number"
                   value={containersSampled}
                   onChange={(e) => setContainersSampled(+e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
-                  min={0}
+                  disabled={mode === 'view'}
                 />
               </label>
               <label className="block">
                 Sampled quantity
                 <input
-                  type="number"
                   value={sampledQuantity}
                   onChange={(e) => setSampledQuantity(+e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
-                  min={0}
+                  disabled={mode === 'view'}
                 />
               </label>
               <label className="block col-span-2">
@@ -132,6 +157,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   value={sampledBy}
                   onChange={(e) => setSampledBy(e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
+                  disabled={mode === 'view'}
                 />
               </label>
               <label className="block col-span-2">
@@ -141,6 +167,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   value={sampledOn}
                   onChange={(e) => setSampledOn(e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
+                  disabled={mode === 'view'}
                 />
               </label>
             </div>
@@ -158,6 +185,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   value={arNumber}
                   onChange={(e) => setArNumber(e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
+                  disabled={mode === 'view'}
                 />
               </label>
               <label className="block">
@@ -167,6 +195,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   value={releaseDate}
                   onChange={(e) => setReleaseDate(e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
+                  disabled={mode === 'view'}
                 />
               </label>
               <label className="block">
@@ -175,6 +204,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   value={potency}
                   onChange={(e) => setPotency(e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
+                  disabled={mode === 'view'}
                 />
               </label>
               <label className="block">
@@ -183,6 +213,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   value={moistureContent}
                   onChange={(e) => setMoistureContent(e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
+                  disabled={mode === 'view'}
                 />
               </label>
               <label className="block">
@@ -191,6 +222,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   value={yieldPercent}
                   onChange={(e) => setYieldPercent(e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
+                  disabled={mode === 'view'}
                 />
               </label>
               <label className="block">
@@ -199,6 +231,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   value={status}
                   onChange={(e) => setStatus(e.target.value as Status)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
+                  disabled={mode === 'view'}
                 >
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>
@@ -210,6 +243,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   value={analystRemark}
                   onChange={(e) => setAnalystRemark(e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
+                  disabled={mode === 'view'}
                 />
               </label>
             </div>
@@ -231,6 +265,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   value={analysedBy}
                   onChange={(e) => setAnalysedBy(e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
+                  disabled={mode === 'view'}
                 />
               </label>
               <label className="block">
@@ -239,6 +274,7 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
                   value={approvedBy}
                   onChange={(e) => setApprovedBy(e.target.value)}
                   className="mt-1 w-full border rounded px-2 py-1 text-black"
+                  disabled={mode === 'view'}
                 />
               </label>
             </div>
@@ -253,12 +289,14 @@ export const QAQCModal = ({ grnId, existingData, onClose }: QAQCModalProps) => {
           >
             Cancel
           </button>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            {existingData ? 'Update QA/QC' : 'Submit QA/QC'}
-          </button>
+          {mode === 'create' && (
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Submit QA/QC
+            </button>
+          )}
         </div>
       </form>
     </div>

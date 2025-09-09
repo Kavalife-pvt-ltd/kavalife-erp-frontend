@@ -16,20 +16,26 @@ export interface QAQCData {
   approvedBy: string;
 }
 
+// src/types/grn.ts
 export interface GRN {
   id: number;
-  createdAt: string;
-  vendor: string;
-  product: string;
-  status: 'pending' | 'in-progress' | 'completed';
+  grn_number: string;
+  created_at: string;
+  vendor_name: string;
+  product_name: string;
   quantity: number;
-  containerQuantity: number;
-  batchNo: number;
-  invoice: number;
-  invoiceDate: string;
-  invoiceImg: string;
-  doneBy?: string;
-  checkedBy?: string;
-  qaqc?: QAQCData;
-  packagingStatus?: string;
+  container_qty: number;
+  invoice: string | number;
+  invoice_date: string;
+  invoice_img?: string;
+  packaging_status: string;
+  created_by: number;
+  vir_number: string;
+  // Optional fields sometimes present:
+  vir_id?: number; // <-- add
+  remarks?: string; // <-- add
+  productImage?: string; // <-- add
+  checked_by?: number; // <-- add
+  qaqcStatus: 'not_created' | 'created' | 'approved';
+  status: 'pending' | 'in-progress' | 'completed';
 }

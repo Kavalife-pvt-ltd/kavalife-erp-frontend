@@ -4,7 +4,7 @@ import type { GRN } from '@/types/grn';
 interface GRNCardProps {
   grn: GRN;
   onClick: () => void;
-  onQAQCClick: () => void;
+  onQAQCClick: (type: 'create' | 'qaqc', grn: GRN) => void;
   className?: string;
 }
 
@@ -25,7 +25,7 @@ export const GRNCard = ({ grn, onClick, onQAQCClick, className }: GRNCardProps) 
     <div className="flex-1 space-y-2">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center">
         <h3 className="text-lg font-semibold text-foreground">
-          {grn.vendor} — {grn.product}
+          {grn.vendor_name} — {grn.product_name}
         </h3>
         <span
           className={cn(
@@ -37,22 +37,33 @@ export const GRNCard = ({ grn, onClick, onQAQCClick, className }: GRNCardProps) 
         </span>
       </div>
 
-      <p className="text-sm text-muted">Date: {new Date(grn.createdAt).toLocaleDateString()}</p>
+      <p className="text-sm text-muted">Date: {new Date(grn.created_at).toLocaleDateString()}</p>
       <p className="text-sm text-muted">
-        Quantity: {grn.quantity} | Containers: {grn.containerQuantity}
+        Quantity: {grn.quantity} | Containers: {grn.container_qty}
       </p>
 
       {/* QA/QC launcher */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onQAQCClick();
-        }}
-        className={`absolute bottom-4 right-4 px-3 py-1 ${grn.qaqc ? 'bg-blue-600' : 'bg-yellow-600'} text-white rounded hover:bg-blue-700`}
-      >
-        QA/QC
-      </button>
+      {grn.qaqcStatus === 'not_created' ? (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onQAQCClick('create', grn);
+          }}
+          className="absolute bottom-4 right-4 px-3 py-1 bg-yellow-600  text-white rounded hover:bg-yellow-700"
+        >
+          Create QA/QC
+        </button>
+      ) : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onQAQCClick('qaqc', grn);
+          }}
+          className="absolute bottom-4 z-10 right-4 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          View QA/QC
+        </button>
+      )}
     </div>
   </div>
 );

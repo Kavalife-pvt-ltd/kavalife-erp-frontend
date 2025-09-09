@@ -1,6 +1,82 @@
-// src/data/vir.ts
+// src/types/vir.ts
+
+// Shared
+export type VIRStatus = 'in-progress' | 'completed' | 'checked';
+export type ChecklistValue = 'yes' | 'no' | 'na';
+export type Checklist = Record<string, ChecklistValue>;
+
+// Backend models
+export interface VIR {
+  id: number;
+  vir_number: string;
+  created_at: string;
+  vendor_id: number;
+  product_id: number;
+  vendor_name?: string;
+  product_name?: string;
+  checklist: Checklist;
+  remarks: string;
+  created_by: number;
+  checked_by?: number;
+  checked_at?: string;
+  status: VIRStatus;
+}
+
+// API wrappers (optional; your axios often unwraps already)
+export interface VIRListResponse {
+  data: VIR[];
+}
+export interface VIRSingleResponse {
+  data: VIR;
+}
+
+// Requests/Responses
+export interface CreateVIRRequest {
+  vendor: string; // name
+  product: string; // name
+  remarks: string;
+  checklist: Checklist;
+  createdBy: {
+    data: {
+      id: number;
+      username: string;
+      created_at: string;
+      role: string;
+      phone_num?: number | string;
+    };
+  };
+  createdAt: string; // ISO
+}
+export interface CreateVIRResponse {
+  vir_number: string;
+  createdBy: string;
+  createdAt: string;
+  status: VIRStatus | string;
+}
+
+export interface VerifyVIRRequest {
+  checkedBy: {
+    data: {
+      id: number;
+      username: string;
+      created_at: string;
+      role: string;
+      phone_num?: number | string;
+    };
+  };
+  checkedAt: string; // ISO
+}
+export interface VerifyVIRResponse {
+  vir_number: string;
+  checkedBy: string;
+  checkedAt: string;
+  status: VIRStatus | string;
+}
+
+// UI view models
 export interface VIRDetails {
-  id: string;
+  id: number;
+  virNumber: string;
   vendorName: string;
   productName: string;
   productImage: string;
@@ -8,30 +84,17 @@ export interface VIRDetails {
   remarks: string;
 }
 
-// Mock data — swap out for your real API later
-export const mockVirData: Record<string, VIRDetails> = {
-  '101': {
-    id: '101',
-    vendorName: 'XYZ Enterprises',
-    productName: 'Chilli Powder',
-    productImage: 'https://kavalife.in/wp-content/uploads/2024/07/Capsicum-Oleoresin-1.png.png',
-    date: '2025-06-16',
-    remarks: 'Urgent shipment',
-  },
-  '102': {
-    id: '102',
-    vendorName: 'ABC Ltd.',
-    productName: 'Wheat Flour',
-    productImage: 'https://kavalife.in/wp-content/uploads/2024/07/Capsicum-Oleoresin-1.png.png',
-    date: '2025-06-14',
-    remarks: 'Double check packaging',
-  },
-  '103': {
-    id: '103',
-    vendorName: 'MNO Traders',
-    productName: 'Turmeric',
-    productImage: 'https://kavalife.in/wp-content/uploads/2024/07/Capsicum-Oleoresin-1.png.png',
-    date: '2025-06-15',
-    remarks: 'Store in cool place',
-  },
-};
+export type VIRCardStatus = 'pending verification' | 'verified';
+export interface VIRCardProps {
+  id: number;
+  vir_number?: string;
+  vendorId: string | number;
+  productId: string | number;
+  status: VIRCardStatus;
+  remarks: string;
+  imageUrl?: string;
+  checklist?: Checklist;
+  createdAt?: string;
+  className?: string;
+  verifiedBy?: string;
+}
