@@ -90,7 +90,7 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
             product: productName,
             remarks,
             checklist,
-            createdBy: { data: authUser }, // backend expects { data: User }
+            createdBy: authUser, // backend expects { data: User }
             createdAt: new Date().toISOString(),
           },
           { withCredentials: true }
