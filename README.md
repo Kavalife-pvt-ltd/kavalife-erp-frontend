@@ -83,3 +83,100 @@ git commit -m "Feature: your feature description"
 git push origin feature/your-feature-name
 
 # Create Pull Request to `dev` branch
+
+```
+kavalife-erp-frontend
+├─ .eslintrc.cjs
+├─ .prettierrc
+├─ README.md
+├─ __mocks__
+│  └─ fileMock.js
+├─ eslint.config.js
+├─ index.html
+├─ jest.config.cjs
+├─ jest.setup.ts
+├─ package-lock.json
+├─ package.json
+├─ postcss.config.js
+├─ src
+│  ├─ api
+│  │  ├─ auth.ts
+│  │  ├─ bootstrap.ts
+│  │  ├─ grn.ts
+│  │  ├─ qaqc.ts
+│  │  └─ vir.ts
+│  ├─ assets
+│  │  └─ react.svg
+│  ├─ components
+│  │  ├─ Header.tsx
+│  │  ├─ Sidebar.tsx
+│  │  ├─ forms
+│  │  │  ├─ ExtractionForm.tsx
+│  │  │  ├─ ExtractionFormPage.tsx
+│  │  │  ├─ GRNFormModal.tsx
+│  │  │  ├─ PurificationForm.tsx
+│  │  │  ├─ PurificationFormPage.tsx
+│  │  │  ├─ QAQCModal.tsx
+│  │  │  ├─ StrippingForm.tsx
+│  │  │  ├─ StrippingFormPage.tsx
+│  │  │  └─ VIRFormModal.tsx
+│  │  ├─ layouts
+│  │  │  └─ DashboardLayout.tsx
+│  │  ├─ protected
+│  │  │  └─ ProtectedLayout.tsx
+│  │  └─ ui
+│  │     ├─ ExtractionCard.tsx
+│  │     ├─ GRNCard.tsx
+│  │     ├─ Loader.tsx
+│  │     ├─ PurificationCard.tsx
+│  │     ├─ StrippingCard.tsx
+│  │     ├─ Tooltip.tsx
+│  │     ├─ VIRCard.tsx
+│  │     ├─ button.tsx
+│  │     ├─ sheet.tsx
+│  │     └─ task-card.tsx
+│  ├─ contexts
+│  │  ├─ AuthContext.tsx
+│  │  └─ AuthProvider.tsx
+│  ├─ hooks
+│  │  └─ useAuthContext.ts
+│  ├─ index.css
+│  ├─ main.tsx
+│  ├─ pages
+│  │  ├─ Login.tsx
+│  │  └─ dashboard
+│  │     ├─ Extraction.tsx
+│  │     ├─ GoodsReceivedNote.tsx
+│  │     ├─ Home.tsx
+│  │     ├─ Inventory.tsx
+│  │     ├─ Purification.tsx
+│  │     ├─ Stripping.tsx
+│  │     ├─ Tasks.tsx
+│  │     └─ VehicleInspection.tsx
+│  ├─ routes
+│  │  └─ AppRouter.tsx
+│  ├─ services
+│  │  └─ supabaseClient.ts
+│  ├─ store
+│  │  └─ bootstrap.ts
+│  ├─ styles
+│  ├─ test
+│  │  └─ GIRformmodal.test.tsx
+│  ├─ types
+│  │  ├─ bootstrap.ts
+│  │  ├─ grn.ts
+│  │  ├─ user.ts
+│  │  └─ vir.ts
+│  ├─ utils
+│  │  ├─ utils.ts
+│  │  └─ virMappers.ts
+│  └─ vite-env.d.ts
+├─ tailwind.config.js
+├─ tsconfig.app.json
+├─ tsconfig.json
+├─ tsconfig.node.json
+├─ tsconfig.test.json
+├─ vercel.json
+└─ vite.config.ts
+
+```
