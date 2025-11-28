@@ -1,7 +1,7 @@
 // components/forms/PurificationForm.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { PurificationTask } from '@/pages/dashboard/Purification';
+import type { PurificationTask } from '@/pages/dashboard/production/Purification';
 
 interface PurificationFormProps {
   existingTask: PurificationTask | null;

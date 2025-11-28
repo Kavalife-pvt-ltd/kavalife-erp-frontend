@@ -2,17 +2,18 @@ import { Routes, Route } from 'react-router-dom';
 import Login from '@/pages/Login';
 import ProtectedLayout from '@/components/protected/ProtectedLayout';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
-import { DashboardHome } from '@/pages/dashboard/Home';
-import { Inventory } from '@/pages/dashboard/Inventory';
-import { TaskList } from '@/pages/dashboard/Tasks';
-import { VehicleInspection } from '@/pages/dashboard/VehicleInspection';
-import { GoodsReceivedNote } from '@/pages/dashboard/GoodsReceivedNote';
-import ExtractionPage from '@/pages/dashboard/Extraction';
+import { DashboardHome } from '@/pages/dashboard/production/Home';
+import { Inventory } from '@/pages/dashboard/production/Inventory';
+import { TaskList } from '@/pages/dashboard/production/Tasks';
+import { VehicleInspection } from '@/pages/dashboard/production/VehicleInspection';
+import { GoodsReceivedNote } from '@/pages/dashboard/production/GoodsReceivedNote';
+import ExtractionPage from '@/pages/dashboard/production/Extraction';
 import ExtractionFormPage from '@/components/forms/ExtractionFormPage';
-import StrippingPage from '@/pages/dashboard/Stripping';
+import StrippingPage from '@/pages/dashboard/production/Stripping';
 import StrippingFormPage from '@/components/forms/StrippingFormPage';
-import PurificationPage from '@/pages/dashboard/Purification';
+import PurificationPage from '@/pages/dashboard/production/Purification';
 import PurificationFormPage from '@/components/forms/PurificationFormPage';
+import Sales from '@/pages/dashboard/sales/Sales';
 
 const AppRouter = () => {
   return (
@@ -34,6 +35,8 @@ const AppRouter = () => {
           <Route path="purification/form" element={<PurificationFormPage />} />
           <Route path="decolorisation" element={<GoodsReceivedNote />} />
           <Route path="decolorisation/form" element={<GoodsReceivedNote />} />
+
+          <Route path="sales" element={<Sales />} />
         </Route>
       </Route>
     </Routes>
