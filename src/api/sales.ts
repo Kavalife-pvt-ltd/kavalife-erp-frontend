@@ -1,6 +1,8 @@
 // src/api/sales.ts
-import { SalesPO, SalesPOStatusLog, SalesPOStatus } from '@/types/sales';
 import axios from 'axios';
+import type { SalesPO, SalesPOStatus, SalesPOStatusLog, CreateSalesPORequest } from '@/types/sales';
+
+const baseURL = import.meta.env.VITE_BACKEND_URL;
 
 export interface ListSalesPOParams {
   status?: SalesPOStatus;
@@ -8,20 +10,33 @@ export interface ListSalesPOParams {
   productId?: number;
 }
 
-export async function createSalesPO(payload: unknown) {
-  // TODO: define proper request type once form is ready
-  const res = await axios.post('/sales-po', payload);
-  return res.data as { success: boolean; data: SalesPO };
+export async function createSalesPO(payload: CreateSalesPORequest): Promise<SalesPO> {
+  const url = `${baseURL}/sales-po/create`;
+
+  const resp = await axios.post(url, payload, {
+    withCredentials: true, // send usrCookie for AuthMiddleware
+  });
+
+  // Backend pattern: sometimes wraps as { success, data }, sometimes raw
+  return (resp.data?.data ?? resp.data) as SalesPO;
 }
 
-export async function listSalesPO(params?: ListSalesPOParams) {
-  const res = await axios.get('/sales-po', { params });
-  return res.data as { success: boolean; data: SalesPO[] };
+// List Sales POs (generic)
+export async function listSalesPO(params?: ListSalesPOParams): Promise<SalesPO[]> {
+  const url = `${baseURL}/sales-po`;
+  const { data } = await axios.get(url, {
+    params,
+    withCredentials: true,
+  });
+
+  return (data?.data ?? data) as SalesPO[];
 }
 
-export async function getSalesPO(id: number) {
-  const res = await axios.get(`/sales-po/${id}`);
-  return res.data as { success: boolean; data: SalesPO };
+// Get a single Sales PO by ID
+export async function getSalesPO(id: number): Promise<SalesPO> {
+  const url = `${baseURL}/sales-po/${id}`;
+  const { data } = await axios.get(url, { withCredentials: true });
+  return (data?.data ?? data) as SalesPO;
 }
 
 export interface UpdateSalesPOStatusPayload {
@@ -34,24 +49,32 @@ export interface UpdateSalesPOStatusPayload {
   deliveryCode?: string;
 }
 
-export async function updateSalesPOStatus(id: number, payload: UpdateSalesPOStatusPayload) {
-  const res = await axios.patch(`/sales-po/${id}/status`, payload);
-  return res.data as { success: boolean; data: SalesPO };
+export async function updateSalesPOStatus(
+  id: number,
+  payload: UpdateSalesPOStatusPayload
+): Promise<SalesPO> {
+  const url = `${baseURL}/sales-po/${id}/status`;
+  const { data } = await axios.patch(url, payload, { withCredentials: true });
+  return (data?.data ?? data) as SalesPO;
 }
 
-export async function getSalesPOStatusLog(id: number) {
-  const res = await axios.get(`/sales-po/${id}/status-log`);
-  return res.data as { success: boolean; data: SalesPOStatusLog[] };
+// Status timeline for a given PO
+export async function getSalesPOStatusLog(id: number): Promise<SalesPOStatusLog[]> {
+  const url = `${baseURL}/sales-po/${id}/status-log`;
+  const { data } = await axios.get(url, { withCredentials: true });
+  return (data?.data ?? data) as SalesPOStatusLog[];
 }
 
-// Purchase queue (masked results from backend)
-export async function listPurchaseQueue() {
-  const res = await axios.get('/sales-po/purchase-queue');
-  return res.data as { success: boolean; data: SalesPO[] };
+// Purchase queue (masked client data)
+export async function listPurchaseQueue(): Promise<SalesPO[]> {
+  const url = `${baseURL}/sales-po/purchase-queue`;
+  const { data } = await axios.get(url, { withCredentials: true });
+  return (data?.data ?? data) as SalesPO[];
 }
 
-// Production queue (masked results from backend)
-export async function listProductionQueue() {
-  const res = await axios.get('/sales-po/production-queue');
-  return res.data as { success: boolean; data: SalesPO[] };
+// Production queue (masked client data)
+export async function listProductionQueue(): Promise<SalesPO[]> {
+  const url = `${baseURL}/sales-po/production-queue`;
+  const { data } = await axios.get(url, { withCredentials: true });
+  return (data?.data ?? data) as SalesPO[];
 }

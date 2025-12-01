@@ -1,5 +1,5 @@
 // src/pages/dashboard/sales/Sales.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthContext } from '@/hooks/useAuthContext';
 
@@ -10,6 +10,8 @@ import SalesPurchaseQueueView from './SalesPurchaseQueueView';
 import SalesProductionQueueView from './SalesProductionQueueView';
 import SalesAllPOsView from './SalesAllPOsView';
 import SalesDashboardView from './SalesDashboardView';
+
+type Role = 'admin' | 'sales' | 'purchase' | 'production';
 
 type SalesTabId =
   | 'create'
@@ -23,11 +25,11 @@ type SalesTabId =
 interface SalesTabConfig {
   id: SalesTabId;
   label: string;
-  roles: Array<'admin' | 'sales' | 'purchase' | 'production'>;
+  roles: Role[];
 }
 
 const SALES_TABS: SalesTabConfig[] = [
-  { id: 'create', label: 'Create PO', roles: ['sales'] },
+  { id: 'create', label: 'Create PO', roles: ['sales', 'admin'] },
   { id: 'my-pos', label: 'My POs', roles: ['sales', 'admin'] },
   { id: 'admin-review', label: 'Admin Review', roles: ['admin'] },
   { id: 'purchase-queue', label: 'Purchase Queue', roles: ['admin', 'purchase'] },
@@ -38,46 +40,29 @@ const SALES_TABS: SalesTabConfig[] = [
 
 const SalesPage: React.FC = () => {
   const { authUser } = useAuthContext();
-  const role = (authUser?.role || 'sales') as 'admin' | 'sales' | 'purchase' | 'production';
-
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const role: Role = (authUser?.role as Role) || 'sales';
 
   const availableTabs = useMemo(() => SALES_TABS.filter((t) => t.roles.includes(role)), [role]);
 
-  const defaultTab: SalesTabId = availableTabs[0]?.id ?? 'my-pos';
+  // If no tabs at all (shouldn't happen, but just in case)
+  if (availableTabs.length === 0) {
+    return <div className="text-sm text-slate-500">No sales views available for your role.</div>;
+  }
 
-  const [activeTab, setActiveTab] = useState<SalesTabId>(defaultTab);
+  const rawView = searchParams.get('view') as SalesTabId | null;
 
-  // Sync from URL -> state
-  useEffect(() => {
-    const viewParam = searchParams.get('view') as SalesTabId | null;
-    if (viewParam && availableTabs.some((t) => t.id === viewParam)) {
-      setActiveTab(viewParam);
-    } else {
-      // If invalid view in URL, normalize it to default for this role
-      if (availableTabs.length > 0) {
-        const params = new URLSearchParams(location.search);
-        params.set('view', defaultTab);
-        navigate(
-          {
-            pathname: location.pathname,
-            search: params.toString(),
-          },
-          { replace: true }
-        );
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, availableTabs.length]);
+  // If URL has ?view=create and the role can access it, use it.
+  // Otherwise, fall back to first available tab for this role.
+  const activeTab: SalesTabId =
+    rawView && availableTabs.some((t) => t.id === rawView) ? rawView : availableTabs[0].id;
 
   const handleTabClick = (id: SalesTabId) => {
-    setActiveTab(id);
-
     const params = new URLSearchParams(location.search);
     params.set('view', id);
-
     navigate(
       {
         pathname: location.pathname,

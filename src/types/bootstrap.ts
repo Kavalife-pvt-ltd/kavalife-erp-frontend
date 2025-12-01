@@ -22,6 +22,7 @@ export interface Vendor {
 
 // ---------- Products ----------
 export interface Product {
+  code: unknown;
   id: number;
   name: string;
   quantity: number; // can be int/float
