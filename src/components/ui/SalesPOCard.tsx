@@ -1,138 +1,135 @@
 // src/components/ui/SalesPOCard.tsx
 import React from 'react';
-import type { SalesPO, SalesPOStatus } from '@/types/sales';
+import type { SalesPO } from '@/types/sales';
+import type { Product } from '@/types/bootstrap';
+import { useBootstrapStore } from '@/store/bootstrap';
 import clsx from 'clsx';
 
 type Props = {
   po: SalesPO;
+  maskCompany?: boolean;
   onClick?: () => void;
 };
 
-function getStatusLabel(status: SalesPOStatus): string {
-  switch (status) {
-    case 'quote_requested':
-      return 'Quote Requested';
-    case 'quote_admin_approved':
-      return 'Admin Approved';
-    case 'quote_sent_to_client':
-      return 'Sent to Client';
-    case 'client_negotiation':
-      return 'Client Negotiation';
-    case 'client_approved':
-      return 'Client Approved';
-    case 'client_rejected':
-      return 'Client Rejected';
-    case 'final_admin_approved':
-      return 'Final Admin Approved';
-    case 'routed_to_purchase':
-      return 'Routed to Purchase';
-    case 'routed_to_production':
-      return 'Routed to Production';
-    case 'admin_rejected':
-      return 'Admin Rejected';
-    case 'cancelled':
-      return 'Cancelled';
-    default:
-      return status;
-  }
-}
+const statusLabelMap: Record<string, string> = {
+  quote_requested: 'Quote Requested',
+  quote_admin_approved: 'Admin Approved',
+  quote_sent_to_client: 'Sent to Client',
+  client_negotiation: 'Negotiation',
+  client_approved: 'Client Approved',
+  client_rejected: 'Client Rejected',
+  final_admin_approved: 'Final Admin Approved',
+  routed_to_purchase: 'Routed to Purchase',
+  routed_to_production: 'Routed to Production',
+  admin_rejected: 'Admin Rejected',
+  cancelled: 'Cancelled',
+};
 
-function getStatusClass(status: SalesPOStatus): string {
-  if (status === 'client_rejected' || status === 'admin_rejected' || status === 'cancelled') {
-    return 'bg-red-100 text-red-700';
-  }
-  if (
-    status === 'quote_admin_approved' ||
-    status === 'client_approved' ||
-    status === 'final_admin_approved'
-  ) {
-    return 'bg-emerald-100 text-emerald-700';
-  }
-  if (status === 'routed_to_purchase' || status === 'routed_to_production') {
-    return 'bg-blue-100 text-blue-700';
-  }
-  return 'bg-amber-100 text-amber-800'; // in-progress / neutral
-}
+const statusColorClass = (status: string) =>
+  ({
+    quote_requested: 'bg-yellow-100 text-yellow-800',
+    quote_admin_approved: 'bg-emerald-100 text-emerald-800',
+    quote_sent_to_client: 'bg-blue-100 text-blue-800',
+    client_negotiation: 'bg-indigo-100 text-indigo-800',
+    client_approved: 'bg-emerald-100 text-emerald-800',
+    client_rejected: 'bg-red-100 text-red-800',
+    final_admin_approved: 'bg-emerald-100 text-emerald-800',
+    routed_to_purchase: 'bg-sky-100 text-sky-800',
+    routed_to_production: 'bg-purple-100 text-purple-800',
+    admin_rejected: 'bg-red-100 text-red-800',
+    cancelled: 'bg-slate-200 text-slate-700',
+  })[status] ?? 'bg-slate-100 text-slate-700';
 
-const SalesPOCard: React.FC<Props> = ({ po, onClick }) => {
-  const poNumber = po.poNumber ?? `PO-${po.id}`;
-  const requestTypeLabel = po.requestType === 'sample' ? 'Sample Request' : 'Purchase Request';
+const SalesPOCard: React.FC<Props> = ({ po, maskCompany = false, onClick }) => {
+  const products = useBootstrapStore((s) => s.products as Product[] | undefined) ?? [];
+  const product = products.find((p) => p.id === po.productId);
 
-  const expectedDate = po.expectedDeliveryDate
-    ? new Date(po.expectedDeliveryDate).toLocaleDateString()
-    : '-';
+  const poNumber = po.poNumber ?? 'Draft / Pending Number';
+  const statusLabel = statusLabelMap[po.status] ?? po.status;
 
-  const requestDate = po.requestDate ? new Date(po.requestDate).toLocaleDateString() : '-';
+  const createdDate = po.requestDate ? new Date(po.requestDate).toLocaleDateString() : '';
+
+  const dueDate =
+    po.expectedDeliveryDate != null ? new Date(po.expectedDeliveryDate).toLocaleDateString() : null;
+
+  const companyName = maskCompany ? 'Confidential Client' : po.companyName;
+  const companyAddress = maskCompany ? 'Hidden for this view' : po.companyAddress;
 
   return (
-    <button
-      type="button"
+    <article
       onClick={onClick}
       className={clsx(
-        'w-full text-left rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md',
-        'dark:border-slate-700 dark:bg-slate-900'
+        'flex flex-col gap-2 rounded-xl border border-stroke bg-foreground p-4 shadow-custom',
+        onClick && 'cursor-pointer transition-transform hover:scale-[1.01] hover:shadow-lg'
       )}
     >
-      {/* Top row: PO number + status */}
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div>
-          <div className="text-xs font-semibold uppercase text-slate-400">{poNumber}</div>
-          <div className="text-sm text-slate-500">{requestTypeLabel}</div>
+      <header className="flex items-start justify-between gap-2">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold text-primaryText">{poNumber}</h3>
+          <p className="text-xs text-primaryText/70">
+            {product ? product.name : `Product ID: ${po.productId}`}
+          </p>
         </div>
         <span
           className={clsx(
-            'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold',
-            getStatusClass(po.status)
+            'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+            statusColorClass(po.status)
           )}
         >
-          {getStatusLabel(po.status)}
+          {statusLabel}
         </span>
-      </div>
+      </header>
 
-      {/* Company + product */}
-      <div className="mb-2">
-        <div className="text-sm font-semibold text-slate-900">{po.companyName}</div>
-        {po.productName && <div className="text-xs text-slate-500">Product: {po.productName}</div>}
-      </div>
+      <section className="space-y-1 text-xs">
+        <p className="font-medium text-primaryText">{companyName}</p>
+        <p className="text-primaryText/70 line-clamp-2">{companyAddress}</p>
 
-      {/* Quantity / price */}
-      <div className="mb-2 flex flex-wrap gap-4 text-xs text-slate-600">
-        <div>
-          <span className="font-semibold">Qty: </span>
-          {po.quantity} {po.quantityUnit ?? ''}
-        </div>
-        {po.askingPrice != null && (
+        <div className="mt-1 grid grid-cols-2 gap-2">
           <div>
-            <span className="font-semibold">Asking: </span>
-            {po.askingPrice}
+            <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Quantity</p>
+            <p className="text-xs text-primaryText">
+              {po.quantity} {po.quantityUnit ?? ''}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Request Type</p>
+            <p className="text-xs text-primaryText">
+              {po.requestType === 'sample' ? 'Sample' : 'Purchase'}
+            </p>
+          </div>
+        </div>
+
+        {dueDate && (
+          <div className="mt-2">
+            <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Due Date</p>
+            <p className="text-xs text-primaryText">{dueDate}</p>
           </div>
         )}
-        {po.purity && (
-          <div>
-            <span className="font-semibold">Purity: </span>
-            {po.purity}
-          </div>
-        )}
-        {po.grade && (
-          <div>
-            <span className="font-semibold">Grade: </span>
-            {po.grade}
-          </div>
-        )}
-      </div>
 
-      {/* Dates */}
-      <div className="flex flex-wrap gap-4 text-xs text-slate-500">
-        <div>
-          <span className="font-semibold">Requested: </span>
-          {requestDate}
-        </div>
-        <div>
-          <span className="font-semibold">Expected: </span>
-          {expectedDate}
-        </div>
-      </div>
-    </button>
+        {/* Sales comments */}
+        {po.comments && (
+          <div className="mt-2">
+            <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Comments</p>
+            <p className="text-xs text-primaryText line-clamp-2">{po.comments}</p>
+          </div>
+        )}
+
+        {/* Reason for rejection (if any) */}
+        {po.rejectionReason && (
+          <div className="mt-2">
+            <p className="text-[11px] uppercase tracking-wide text-red-500">Reason for Rejection</p>
+            <p className="text-xs text-red-600 dark:text-red-300 line-clamp-2">
+              {po.rejectionReason}
+            </p>
+          </div>
+        )}
+      </section>
+
+      <footer className="mt-2 flex items-center justify-between text-[11px] text-primaryText/70">
+        <span>{createdDate}</span>
+        {po.purity && <span>Purity: {po.purity}</span>}
+      </footer>
+    </article>
   );
 };
 

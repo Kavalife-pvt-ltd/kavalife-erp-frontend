@@ -10,7 +10,7 @@ import Sidebar from '../Sidebar';
 
 const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false); // ➕ new state
+  const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const { setAuthUser } = useAuthContext();
 
@@ -22,21 +22,25 @@ const DashboardLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-primaryText flex flex-col">
+    <div className="flex min-h-screen flex-col bg-background text-primaryText">
       <Header onLogout={handleLogout} onOpenSidebar={() => setSidebarOpen(true)} />
 
-      <div className="flex flex-1">
-        <aside className="hidden md:block sticky top-20 h-[calc(100vh-5rem)]">
+      {/* 🔹 This flex row is now height-bound and prevents body scroll */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Desktop sidebar */}
+        <aside className="hidden h-full overflow-y-auto md:block">
           <Sidebar collapsed={collapsed} toggleCollapsed={() => setCollapsed((prev) => !prev)} />
         </aside>
 
+        {/* Mobile sidebar (Sheet) */}
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetContent side="left" className="p-0 w-64">
+          <SheetContent side="left" className="w-64 p-0">
             <Sidebar onSelect={() => setSidebarOpen(false)} />
           </SheetContent>
         </Sheet>
 
-        <main className="flex-1 p-6 overflow-y-auto">
+        {/* Main content scrolls independently */}
+        <main className="flex-1 overflow-y-auto p-6">
           <Outlet />
         </main>
       </div>

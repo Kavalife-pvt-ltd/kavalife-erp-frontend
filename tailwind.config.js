@@ -11,7 +11,7 @@ const config = {
         background: 'var(--background)',
         foreground: 'var(--foreground)',
         primaryText: 'var(--primaryText)',
-        accent: 'var(--accentPink)',
+        accent: 'var(--accent)',
         stroke: 'var(--stroke)',
       },
       fontFamily: {

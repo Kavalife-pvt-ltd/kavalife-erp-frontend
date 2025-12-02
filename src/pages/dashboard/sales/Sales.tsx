@@ -1,5 +1,4 @@
-// src/pages/dashboard/sales/Sales.tsx
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthContext } from '@/hooks/useAuthContext';
 
@@ -11,7 +10,7 @@ import SalesProductionQueueView from './SalesProductionQueueView';
 import SalesAllPOsView from './SalesAllPOsView';
 import SalesDashboardView from './SalesDashboardView';
 
-type Role = 'admin' | 'sales' | 'purchase' | 'production';
+type EffectiveRole = 'admin' | 'sales' | 'purchase' | 'production';
 
 type SalesTabId =
   | 'create'
@@ -25,55 +24,95 @@ type SalesTabId =
 interface SalesTabConfig {
   id: SalesTabId;
   label: string;
-  roles: Role[];
+  roles: EffectiveRole[];
 }
 
 const SALES_TABS: SalesTabConfig[] = [
+  // Sales team + admin
   { id: 'create', label: 'Create PO', roles: ['sales', 'admin'] },
   { id: 'my-pos', label: 'My POs', roles: ['sales', 'admin'] },
+
+  // Admin only
   { id: 'admin-review', label: 'Admin Review', roles: ['admin'] },
-  { id: 'purchase-queue', label: 'Purchase Queue', roles: ['admin', 'purchase'] },
-  { id: 'production-queue', label: 'Production Queue', roles: ['admin', 'production'] },
   { id: 'all-pos', label: 'All POs', roles: ['admin'] },
   { id: 'dashboard', label: 'Sales Dashboard', roles: ['admin'] },
+
+  // Queues for specific departments + admin
+  { id: 'purchase-queue', label: 'Purchase Queue', roles: ['admin', 'purchase'] },
+  { id: 'production-queue', label: 'Production Queue', roles: ['admin', 'production'] },
 ];
 
+// default view per effective role
+const DEFAULT_VIEW: Record<EffectiveRole, SalesTabId> = {
+  admin: 'dashboard',
+  sales: 'create',
+  purchase: 'purchase-queue',
+  production: 'production-queue',
+};
+
 const SalesPage: React.FC = () => {
-  const { authUser } = useAuthContext();
+  const { authUser } = useAuthContext() as {
+    authUser?: { role?: string; department?: string };
+  };
+
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const role: Role = (authUser?.role as Role) || 'sales';
+  // ── 1) Compute effective role (unconditional, no early return) ──
+  const appRole = authUser?.role ?? 'user';
+  const department = authUser?.department ?? '';
 
-  const availableTabs = useMemo(() => SALES_TABS.filter((t) => t.roles.includes(role)), [role]);
-
-  // If no tabs at all (shouldn't happen, but just in case)
-  if (availableTabs.length === 0) {
-    return <div className="text-sm text-slate-500">No sales views available for your role.</div>;
+  let effectiveRole: EffectiveRole;
+  if (appRole === 'admin') {
+    effectiveRole = 'admin';
+  } else if (department === 'sales') {
+    effectiveRole = 'sales';
+  } else if (department === 'purchase') {
+    effectiveRole = 'purchase';
+  } else if (department === 'production') {
+    effectiveRole = 'production';
+  } else {
+    // fallback – you can tighten this later
+    effectiveRole = 'sales';
   }
 
-  const rawView = searchParams.get('view') as SalesTabId | null;
+  // ── 2) Tabs allowed for this role ─────────────────────────────
+  const availableTabs = useMemo(
+    () => SALES_TABS.filter((t) => t.roles.includes(effectiveRole)),
+    [effectiveRole]
+  );
 
-  // If URL has ?view=create and the role can access it, use it.
-  // Otherwise, fall back to first available tab for this role.
-  const activeTab: SalesTabId =
-    rawView && availableTabs.some((t) => t.id === rawView) ? rawView : availableTabs[0].id;
+  const requestedViewParam = searchParams.get('view') as SalesTabId | null;
 
-  const handleTabClick = (id: SalesTabId) => {
-    const params = new URLSearchParams(location.search);
-    params.set('view', id);
-    navigate(
-      {
-        pathname: location.pathname,
-        search: params.toString(),
-      },
-      { replace: true }
-    );
-  };
+  const isAllowedView = (view: SalesTabId) => availableTabs.some((t) => t.id === view);
 
-  const renderActiveTab = () => {
-    switch (activeTab) {
+  const defaultView = DEFAULT_VIEW[effectiveRole];
+
+  let activeView: SalesTabId = defaultView;
+  if (requestedViewParam && isAllowedView(requestedViewParam)) {
+    activeView = requestedViewParam;
+  }
+
+  // ── 3) Normalize URL (?view) if needed ────────────────────────
+  useEffect(() => {
+    if (!requestedViewParam || !isAllowedView(requestedViewParam)) {
+      const params = new URLSearchParams(location.search);
+      params.set('view', defaultView);
+      navigate(
+        {
+          pathname: location.pathname,
+          search: params.toString(),
+        },
+        { replace: true }
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedViewParam, defaultView, location.pathname]);
+
+  // ── 4) Decide what to render ──────────────────────────────────
+  const renderActiveView = () => {
+    switch (activeView) {
       case 'create':
         return <SalesCreatePOView />;
       case 'my-pos':
@@ -93,36 +132,36 @@ const SalesPage: React.FC = () => {
     }
   };
 
+  // If user is not logged in, show a guard message *inside* the component,
+  // but AFTER all hooks have been called.
+  if (!authUser) {
+    return (
+      <div className="p-4 text-sm text-red-600">
+        You are not logged in. Please log in again to access the Sales module.
+      </div>
+    );
+  }
+
+  if (availableTabs.length === 0) {
+    return (
+      <div className="p-4 text-sm text-slate-500">
+        No sales views available for your role/department.
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col gap-4">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Sales</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Sales</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Manage sales POs, approvals, and routing to purchase/production.
           </p>
         </div>
       </header>
 
-      {/* Internal tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
-        {availableTabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => handleTabClick(tab.id)}
-            className={`rounded-full px-4 py-1 text-sm font-medium ${
-              activeTab === tab.id
-                ? 'bg-emerald-600 text-white'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <main className="flex-1 overflow-auto pb-4">{renderActiveTab()}</main>
+      <main className="flex-1 overflow-auto pb-4">{renderActiveView()}</main>
     </div>
   );
 };

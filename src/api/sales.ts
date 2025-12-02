@@ -21,25 +21,42 @@ export async function createSalesPO(payload: CreateSalesPORequest): Promise<Sale
   return (resp.data?.data ?? resp.data) as SalesPO;
 }
 
-// List Sales POs (generic)
-export async function listSalesPO(params?: ListSalesPOParams): Promise<SalesPO[]> {
-  const url = `${baseURL}/sales-po`;
-  const { data } = await axios.get(url, {
-    params,
+// List POs (all or filtered)
+export async function listSalesPO(params: ListSalesPOParams = {}): Promise<SalesPO[]> {
+  const searchParams = new URLSearchParams();
+
+  if (params.status) searchParams.set('status', params.status);
+  if (typeof params.salesRepId === 'number')
+    searchParams.set('salesRepId', String(params.salesRepId));
+  if (typeof params.productId === 'number') searchParams.set('productId', String(params.productId));
+
+  const qs = searchParams.toString();
+  const url = `${baseURL}/sales-po/view${qs ? `?${qs}` : ''}`;
+
+  const resp = await axios.get(url, { withCredentials: true });
+
+  const payload = resp.data?.data;
+
+  // 🔥 ALWAYS return an array
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  // Fallback: if backend ever returns wrong shape, return []
+  return [];
+}
+
+// Get a single PO by ID
+export async function getSalesPOById(id: number): Promise<SalesPO> {
+  const url = `${baseURL}/sales-po/${id}`;
+  const resp = await axios.get(url, {
     withCredentials: true,
   });
 
-  return (data?.data ?? data) as SalesPO[];
+  return (resp.data?.data ?? resp.data) as SalesPO;
 }
 
-// Get a single Sales PO by ID
-export async function getSalesPO(id: number): Promise<SalesPO> {
-  const url = `${baseURL}/sales-po/${id}`;
-  const { data } = await axios.get(url, { withCredentials: true });
-  return (data?.data ?? data) as SalesPO;
-}
-
-export interface UpdateSalesPOStatusPayload {
+export interface UpdateSalesPOStatusRequest {
   toStatus: SalesPOStatus;
   newQuantity?: number;
   newAskingPrice?: number;
@@ -51,11 +68,15 @@ export interface UpdateSalesPOStatusPayload {
 
 export async function updateSalesPOStatus(
   id: number,
-  payload: UpdateSalesPOStatusPayload
+  payload: UpdateSalesPOStatusRequest
 ): Promise<SalesPO> {
   const url = `${baseURL}/sales-po/${id}/status`;
-  const { data } = await axios.patch(url, payload, { withCredentials: true });
-  return (data?.data ?? data) as SalesPO;
+
+  const resp = await axios.patch(url, payload, {
+    withCredentials: true,
+  });
+
+  return (resp.data?.data ?? resp.data) as SalesPO;
 }
 
 // Status timeline for a given PO
