@@ -8,6 +8,7 @@ export interface ListSalesPOParams {
   status?: SalesPOStatus;
   salesRepId?: number;
   productId?: number;
+  sendTo?: 'sales' | 'admin' | 'purchase' | 'production';
 }
 
 export async function createSalesPO(payload: CreateSalesPORequest): Promise<SalesPO> {
@@ -23,26 +24,24 @@ export async function createSalesPO(payload: CreateSalesPORequest): Promise<Sale
 
 // List POs (all or filtered)
 export async function listSalesPO(params: ListSalesPOParams = {}): Promise<SalesPO[]> {
-  const searchParams = new URLSearchParams();
+  const url = `${baseURL}/sales-po/view`;
 
-  if (params.status) searchParams.set('status', params.status);
-  if (typeof params.salesRepId === 'number')
-    searchParams.set('salesRepId', String(params.salesRepId));
-  if (typeof params.productId === 'number') searchParams.set('productId', String(params.productId));
+  const resp = await axios.get(url, {
+    withCredentials: true,
+    params: {
+      ...(params.status ? { status: params.status } : {}),
+      ...(typeof params.salesRepId === 'number' ? { salesRepId: params.salesRepId } : {}),
+      ...(typeof params.productId === 'number' ? { productId: params.productId } : {}),
+      ...(params.sendTo ? { sendTo: params.sendTo } : {}),
+    },
+  });
 
-  const qs = searchParams.toString();
-  const url = `${baseURL}/sales-po/view${qs ? `?${qs}` : ''}`;
+  const payload = resp.data?.data ?? resp.data;
 
-  const resp = await axios.get(url, { withCredentials: true });
-
-  const payload = resp.data?.data;
-
-  // 🔥 ALWAYS return an array
   if (Array.isArray(payload)) {
-    return payload;
+    return payload as SalesPO[];
   }
 
-  // Fallback: if backend ever returns wrong shape, return []
   return [];
 }
 
@@ -56,7 +55,7 @@ export async function getSalesPOById(id: number): Promise<SalesPO> {
   return (resp.data?.data ?? resp.data) as SalesPO;
 }
 
-export interface UpdateSalesPOStatusRequest {
+export type UpdateSalesPOStatusRequest = {
   toStatus: SalesPOStatus;
   newQuantity?: number;
   newAskingPrice?: number;
@@ -64,7 +63,8 @@ export interface UpdateSalesPOStatusRequest {
   rejectionReason?: string;
   fulfillmentType?: 'purchase' | 'production';
   deliveryCode?: string;
-}
+  sendTo?: 'sales' | 'admin' | 'purchase' | 'production';
+};
 
 export async function updateSalesPOStatus(
   id: number,
@@ -98,4 +98,30 @@ export async function listProductionQueue(): Promise<SalesPO[]> {
   const url = `${baseURL}/sales-po/production-queue`;
   const { data } = await axios.get(url, { withCredentials: true });
   return (data?.data ?? data) as SalesPO[];
+}
+
+export interface SalesPOFilters {
+  status?: string;
+  sendTo?: string;
+  salesRepId?: number;
+  productId?: number;
+}
+
+export async function getSalesPOs(filters: SalesPOFilters = {}): Promise<SalesPO[]> {
+  const params: Record<string, string | number> = {};
+
+  if (filters.status) params.status = filters.status;
+  if (filters.sendTo) params.sendTo = filters.sendTo;
+  if (filters.salesRepId) params.salesRepId = filters.salesRepId;
+  if (filters.productId) params.productId = filters.productId;
+
+  const url = `${baseURL}/sales-po/view`;
+
+  const resp = await axios.get(url, {
+    params,
+    withCredentials: true,
+  });
+
+  // backend returns { success, data }
+  return (resp.data?.data ?? resp.data) as SalesPO[];
 }

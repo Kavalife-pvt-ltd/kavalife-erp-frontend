@@ -18,10 +18,12 @@ const statusLabelMap: Record<string, string> = {
   client_negotiation: 'Negotiation',
   client_approved: 'Client Approved',
   client_rejected: 'Client Rejected',
-  final_admin_approved: 'Final Admin Approved',
+  final_admin_approved: 'Completed',
   routed_to_purchase: 'Routed to Purchase',
   routed_to_production: 'Routed to Production',
   admin_rejected: 'Admin Rejected',
+  purchase_completed: 'Purchase Complete',
+  production_completed: 'Production Complete',
   cancelled: 'Cancelled',
 };
 

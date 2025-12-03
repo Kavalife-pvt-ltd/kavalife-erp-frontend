@@ -11,6 +11,9 @@ export type SalesPOStatus =
   | 'routed_to_purchase'
   | 'routed_to_production'
   | 'admin_rejected'
+  | 'purchase_completed'
+  | 'production_completed'
+  | 'closed'
   | 'cancelled';
 
 export type SalesPORequestType = 'sample' | 'purchase';
@@ -18,6 +21,7 @@ export type SalesPORequestType = 'sample' | 'purchase';
 export type SalesPOFulfillmentType = 'purchase' | 'production';
 
 export interface SalesPO {
+  sendTo: string;
   id: number;
   poNumber?: string | null;
 

@@ -21,6 +21,9 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isCompletedFromOps =
+    po.status === 'purchase_completed' || po.status === 'production_completed';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
@@ -29,22 +32,40 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
     setError(null);
 
     try {
-      const payload =
-        decision === 'approve'
-          ? {
-              toStatus: 'quote_admin_approved' as const,
-              newComments: notes || undefined,
-              fulfillmentType: route,
-            }
-          : {
-              toStatus: 'admin_rejected' as const,
-              rejectionReason: notes || undefined,
-            };
+      let payload;
+
+      if (isCompletedFromOps) {
+        // 👉 Final admin completion when ops has marked it completed
+        payload = {
+          toStatus: 'final_admin_approved' as const,
+          newComments: notes || undefined,
+          sendTo: 'sales' as const, // goes back to sales for info/closure
+        };
+      } else {
+        // 👉 First level admin approve / reject flow
+        payload =
+          decision === 'approve'
+            ? {
+                toStatus: 'quote_admin_approved' as const,
+                newComments: notes || undefined,
+                // we still decide initial routing here
+                sendTo: route as 'purchase' | 'production',
+              }
+            : {
+                toStatus: 'admin_rejected' as const,
+                rejectionReason: notes || undefined,
+                sendTo: 'sales' as const, // back to sales rep
+              };
+      }
 
       const updated = await updateSalesPOStatus(po.id, payload);
-      toast.success(
-        decision === 'approve' ? 'PO approved successfully' : 'PO rejected successfully'
-      );
+
+      if (isCompletedFromOps) {
+        toast.success('PO marked as fully completed.');
+      } else {
+        toast.success(decision === 'approve' ? 'PO approved successfully' : 'PO rejected.');
+      }
+
       onUpdated(updated);
       onClose();
     } catch (err: unknown) {
@@ -66,6 +87,11 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
   };
 
   const createdDate = po.requestDate ? new Date(po.requestDate).toLocaleDateString() : '';
+
+  const opsCompletedLabel =
+    po.status === 'purchase_completed'
+      ? 'Purchase team has marked this PO as completed.'
+      : 'Production team has marked this PO as completed.';
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
@@ -103,67 +129,79 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
               <p className="whitespace-pre-line">{po.comments}</p>
             </div>
           )}
+
+          {isCompletedFromOps && (
+            <div className="rounded-lg bg-emerald-50 p-2 text-[11px] text-emerald-800">
+              <span className="font-medium">Operations Completed • </span>
+              {opsCompletedLabel}
+            </div>
+          )}
         </section>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="flex gap-4 text-xs text-primaryText">
-            <label className="flex items-center gap-1">
-              <input
-                type="radio"
-                name="decision"
-                value="approve"
-                checked={decision === 'approve'}
-                onChange={() => setDecision('approve')}
-                className="h-3 w-3"
-              />
-              <span>Approve</span>
-            </label>
-            <label className="flex items-center gap-1">
-              <input
-                type="radio"
-                name="decision"
-                value="reject"
-                checked={decision === 'reject'}
-                onChange={() => setDecision('reject')}
-                className="h-3 w-3"
-              />
-              <span>Reject</span>
-            </label>
-          </div>
+          {/* ── Decision UI ───────────────────────────────────── */}
+          {!isCompletedFromOps && (
+            <>
+              <div className="flex gap-4 text-xs text-primaryText">
+                <label className="flex items-center gap-1">
+                  <input
+                    type="radio"
+                    name="decision"
+                    value="approve"
+                    checked={decision === 'approve'}
+                    onChange={() => setDecision('approve')}
+                    className="h-3 w-3"
+                  />
+                  <span>Approve</span>
+                </label>
+                <label className="flex items-center gap-1">
+                  <input
+                    type="radio"
+                    name="decision"
+                    value="reject"
+                    checked={decision === 'reject'}
+                    onChange={() => setDecision('reject')}
+                    className="h-3 w-3"
+                  />
+                  <span>Reject</span>
+                </label>
+              </div>
 
-          {decision === 'approve' && (
-            <div className="flex flex-wrap gap-4 text-xs text-primaryText">
-              <span className="text-[11px] uppercase tracking-wide text-primaryText/60">
-                Route to
-              </span>
-              <label className="flex items-center gap-1">
-                <input
-                  type="radio"
-                  name="route"
-                  value="production"
-                  checked={route === 'production'}
-                  onChange={() => setRoute('production')}
-                  className="h-3 w-3"
-                />
-                <span>Production</span>
-              </label>
-              <label className="flex items-center gap-1">
-                <input
-                  type="radio"
-                  name="route"
-                  value="purchase"
-                  checked={route === 'purchase'}
-                  onChange={() => setRoute('purchase')}
-                  className="h-3 w-3"
-                />
-                <span>Purchase</span>
-              </label>
-            </div>
+              {decision === 'approve' && (
+                <div className="flex flex-wrap gap-4 text-xs text-primaryText">
+                  <span className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                    Route to
+                  </span>
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name="route"
+                      value="production"
+                      checked={route === 'production'}
+                      onChange={() => setRoute('production')}
+                      className="h-3 w-3"
+                    />
+                    <span>Production</span>
+                  </label>
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name="route"
+                      value="purchase"
+                      checked={route === 'purchase'}
+                      onChange={() => setRoute('purchase')}
+                      className="h-3 w-3"
+                    />
+                    <span>Purchase</span>
+                  </label>
+                </div>
+              )}
+            </>
           )}
 
           <div className="space-y-1">
             <label className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
-              Comments / Notes
+              {isCompletedFromOps ? 'Final remarks (optional)' : 'Comments / Notes'}
             </label>
             <textarea
               value={notes}
@@ -171,9 +209,11 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
               rows={4}
               className="w-full rounded-lg border border-stroke bg-background p-2 text-xs text-primaryText outline-none focus:ring-1 focus:ring-accent"
               placeholder={
-                decision === 'approve'
-                  ? 'Optional: add any remarks for sales / audit.'
-                  : 'Reason for rejection (recommended).'
+                isCompletedFromOps
+                  ? 'Optional: add any remarks while marking this PO as fully completed.'
+                  : decision === 'approve'
+                    ? 'Optional: add any remarks for sales / audit.'
+                    : 'Reason for rejection (recommended).'
               }
             />
           </div>
@@ -195,12 +235,16 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
               disabled={submitting}
             >
               {submitting
-                ? decision === 'approve'
-                  ? 'Approving...'
-                  : 'Rejecting...'
-                : decision === 'approve'
-                  ? 'Approve'
-                  : 'Reject'}
+                ? isCompletedFromOps
+                  ? 'Marking...'
+                  : decision === 'approve'
+                    ? 'Approving...'
+                    : 'Rejecting...'
+                : isCompletedFromOps
+                  ? 'Mark as Completed'
+                  : decision === 'approve'
+                    ? 'Approve & Route'
+                    : 'Reject'}
             </button>
           </div>
         </form>
@@ -232,8 +276,8 @@ const SalesAdminReviewView: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        // Only show POs waiting for first admin decision
-        const res = await listSalesPO({ status: 'quote_requested' });
+        // IMPORTANT: Admin queue is based on sendTo="admin"
+        const res = await listSalesPO({ sendTo: 'admin' });
 
         if (!cancelled) {
           setData(res);
