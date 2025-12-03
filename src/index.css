@@ -5,8 +5,9 @@
 @tailwind utilities;
 
 :root {
-  --background: #f4f6f8;           
-  --foreground: #1f2937;
+  /* Light mode */
+  --background: #f4f6f8;      /* app background */
+  --foreground: #ffffff;      /* card / panel background */
   --primaryText: #111827;
   --captionPlaceholder: #6b7280;
   --stroke: #e5e7eb;
@@ -16,8 +17,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #1a1c1f;         
-    --foreground: #f3f4f6;
+    --background: #020617;     /* main dark bg */
+    --foreground: #0b1120;     /* card bg slightly lighter */
     --primaryText: #f9fafb;
     --captionPlaceholder: #9ca3af;
     --stroke: #374151;

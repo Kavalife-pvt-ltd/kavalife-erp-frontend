@@ -1,7 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { PurificationForm } from '@/components/forms/PurificationForm';
-import { PurificationTask } from '@/pages/dashboard/Purification';
+import { PurificationTask } from '@/pages/dashboard/production/Purification';
 
 export default function PurificationFormPage() {
   const [params] = useSearchParams();

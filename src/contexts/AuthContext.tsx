@@ -4,6 +4,7 @@ export interface User {
   id: number;
   username: string;
   role: string;
+  department: string;
 }
 
 export interface AuthContextType {

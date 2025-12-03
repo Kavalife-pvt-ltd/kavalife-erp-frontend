@@ -1,7 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { StrippingForm } from '@/components/forms/StrippingForm';
-import { StrippingTask } from '@/pages/dashboard/Stripping';
+import { StrippingTask } from '@/pages/dashboard/production/Stripping';
 
 export default function StrippingFormPage() {
   const [params] = useSearchParams();

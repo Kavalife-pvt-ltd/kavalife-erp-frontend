@@ -66,7 +66,7 @@ export const VIRFormModal = ({ onClose, virData }: VIRFormModalProps) => {
         await axios.patch(
           `${baseURL}/vir/verify/${virData.vir_number}`,
           {
-            checkedBy: { data: authUser }, // backend expects { data: User }
+            checkedBy: { data: authUser },
             checkedAt: new Date().toISOString(),
           },
           { withCredentials: true }

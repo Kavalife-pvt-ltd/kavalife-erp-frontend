@@ -1,7 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { ExtractionForm } from '@/components/forms/ExtractionForm';
-import { ExtractionTask } from '@/pages/dashboard/Extraction';
+import { ExtractionTask } from '@/pages/dashboard/production/Extraction';
 
 export default function ExtractionFormPage() {
   const [params] = useSearchParams();
