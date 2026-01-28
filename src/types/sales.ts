@@ -16,7 +16,6 @@ export type SalesPOStatus =
   | 'production_completed'
   | 'closed'
   | 'purchase_approved'
-  | 'production_approved'
   | 'cancelled';
 
 export type SalesPORequestType = 'sample' | 'purchase';
