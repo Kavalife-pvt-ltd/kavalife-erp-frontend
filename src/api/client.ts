@@ -1,8 +1,7 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_BACKEND_URL;
-
 export const api = axios.create({
-  baseURL,
+  baseURL: import.meta.env.VITE_BACKEND_URL,
   withCredentials: true,
+  timeout: 15000, // ✅ IMPORTANT: never hang forever
 });

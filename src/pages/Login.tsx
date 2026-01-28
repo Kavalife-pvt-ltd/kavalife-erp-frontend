@@ -11,25 +11,22 @@ const Login = () => {
   const [password, setPassword] = useState(isDev ? (import.meta.env.VITE_DEV_PASSWORD ?? '') : '');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { setAuthUser } = useAuthContext();
+  const { refreshSession } = useAuthContext();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const user = await loginUser(username, password);
-      setAuthUser(user.data);
+      await loginUser(username, password);
+      await refreshSession();
       await useBootstrapStore.getState().load();
       navigate('/');
     } catch (error: unknown) {
-      if (error instanceof Error) {
-        toast.error(error.message);
-      } else {
-        toast.error('An unknown error occurred.');
-      }
+      if (error instanceof Error) toast.error(error.message);
+      else toast.error('An unknown error occurred.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (

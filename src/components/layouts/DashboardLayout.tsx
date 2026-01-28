@@ -1,4 +1,3 @@
-// components/layout/DashboardLayout.tsx
 import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -22,25 +21,32 @@ const DashboardLayout = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-primaryText">
+    // ✅ Make the whole app height-bounded (critical for independent scroll)
+    <div className="flex h-dvh flex-col bg-background text-primaryText">
       <Header onLogout={handleLogout} onOpenSidebar={() => setSidebarOpen(true)} />
 
-      {/* 🔹 This flex row is now height-bound and prevents body scroll */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* ✅ min-h-0 is the secret sauce so children can scroll */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Desktop sidebar */}
-        <aside className="hidden h-full overflow-y-auto md:block">
-          <Sidebar collapsed={collapsed} toggleCollapsed={() => setCollapsed((prev) => !prev)} />
+        <aside className="hidden md:block h-full overflow-hidden">
+          {/* ✅ sidebar itself becomes the scroll container */}
+          <div className="h-full overflow-y-auto">
+            <Sidebar collapsed={collapsed} toggleCollapsed={() => setCollapsed((prev) => !prev)} />
+          </div>
         </aside>
 
         {/* Mobile sidebar (Sheet) */}
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetContent side="left" className="w-64 p-0">
-            <Sidebar onSelect={() => setSidebarOpen(false)} />
+            {/* In mobile sheet, sidebar scrolls naturally */}
+            <div className="h-dvh overflow-y-auto">
+              <Sidebar onSelect={() => setSidebarOpen(false)} />
+            </div>
           </SheetContent>
         </Sheet>
 
         {/* Main content scrolls independently */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 min-w-0 overflow-y-auto p-6">
           <Outlet />
         </main>
       </div>
