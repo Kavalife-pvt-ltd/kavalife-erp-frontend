@@ -1,16 +1,13 @@
-// src/pages/dashboard/sales/SalesCreatePOView.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { createSalesPO } from '@/api/sales';
 import type { SalesPORequestType } from '@/types/sales';
-import type { Product } from '@/types/bootstrap';
-import { useBootstrapStore } from '@/store/bootstrap';
 
 type FormState = {
-  productId: string;
+  productName: string; // ✅ text now
   companyName: string;
   companyAddress: string;
   coaUrl: string;
@@ -27,8 +24,10 @@ type FormState = {
   expectedDeliveryDate: string; // yyyy-mm-dd
 };
 
+const QUANTITY_UNITS = ['kg', 'L', 'pcs'] as const;
+
 const initialFormState: FormState = {
-  productId: '',
+  productName: '',
   companyName: '',
   companyAddress: '',
   coaUrl: '',
@@ -45,100 +44,102 @@ const initialFormState: FormState = {
   expectedDeliveryDate: '',
 };
 
-const QUANTITY_UNITS = ['kg', 'L', 'pcs'] as const;
-
-const SalesCreatePOView: React.FC = () => {
+const SalesCreateInquiryView: React.FC = () => {
   const { authUser } = useAuthContext();
   const [form, setForm] = useState<FormState>(initialFormState);
   const [submitting, setSubmitting] = useState(false);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const products = useBootstrapStore((s) => s.products as Product[] | undefined) ?? [];
+  const isNumberField = useMemo(() => new Set(['quantity', 'askingPrice']), []);
 
-  const sortedProducts = useMemo(
-    () => [...products].sort((a, b) => a.name.localeCompare(b.name)),
-    [products]
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      const { name, value } = e.target;
+
+      // light sanitization only for numeric fields
+      const next = isNumberField.has(name) ? value.replace(/[^\d.]/g, '') : value;
+
+      setForm((prev) => ({ ...prev, [name]: next }));
+    },
+    [isNumberField]
   );
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const validate = (): string | null => {
-    if (!form.productId.trim()) return 'Product is required';
+  const validate = useCallback((): string | null => {
+    if (!form.productName.trim()) return 'Product is required';
     if (!form.companyName.trim()) return 'Company name is required';
     if (!form.companyAddress.trim()) return 'Company address is required';
 
-    if (!form.quantity.trim() || Number.isNaN(Number(form.quantity))) {
-      return 'Valid quantity is required';
+    const q = Number(form.quantity);
+    if (!form.quantity.trim() || Number.isNaN(q) || q <= 0) return 'Valid quantity is required';
+
+    // very light email validation if provided
+    if (form.contactEmail.trim() && !/^\S+@\S+\.\S+$/.test(form.contactEmail.trim())) {
+      return 'Contact email looks invalid';
     }
 
     return null;
-  };
+  }, [form]);
+
+  const buildPayload = useCallback(() => {
+    const quantityNum = Number(form.quantity);
+
+    const askingPriceNum =
+      form.askingPrice.trim() && !Number.isNaN(Number(form.askingPrice))
+        ? Number(form.askingPrice)
+        : undefined;
+
+    const expectedDeliveryDateISO = form.expectedDeliveryDate
+      ? new Date(`${form.expectedDeliveryDate}T00:00:00`).toISOString()
+      : undefined;
+
+    return {
+      productName: form.productName.trim(),
+      companyName: form.companyName.trim(),
+      companyAddress: form.companyAddress.trim(),
+      coaUrl: form.coaUrl.trim() || undefined,
+      companyContactName: form.contactName.trim() || undefined,
+      companyContactNumber: form.contactNumber.trim() || undefined,
+      companyContactEmail: form.contactEmail.trim() || undefined,
+      purity: form.purity.trim() || undefined,
+      grade: form.grade.trim() || undefined,
+      requestType: form.requestType,
+      quantity: quantityNum,
+      quantityUnit: form.quantityUnit.trim() || undefined,
+      askingPrice: askingPriceNum,
+      comments: form.comments.trim() || undefined,
+      expectedDeliveryDate: expectedDeliveryDateISO,
+      // requestDate & salesRepId handled by backend
+    };
+  }, [form]);
+
+  const reset = useCallback(() => setForm(initialFormState), []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validationError = validate();
-    if (validationError) {
-      toast.error(validationError);
-      return;
-    }
+    const err = validate();
+    if (err) return toast.error(err);
 
     try {
       setSubmitting(true);
 
-      const productIdNum = Number(form.productId);
-      const quantityNum = Number(form.quantity);
-      const askingPriceNum = form.askingPrice.trim() ? Number(form.askingPrice) : undefined;
-
-      const expectedDateISO = form.expectedDeliveryDate
-        ? new Date(form.expectedDeliveryDate + 'T00:00:00').toISOString()
-        : undefined;
-
-      const payload = {
-        productId: productIdNum,
-        companyName: form.companyName.trim(),
-        companyAddress: form.companyAddress.trim(),
-        coaUrl: form.coaUrl.trim() || undefined,
-        companyContactName: form.contactName.trim() || undefined,
-        companyContactNumber: form.contactNumber.trim() || undefined,
-        companyContactEmail: form.contactEmail.trim() || undefined,
-        purity: form.purity.trim() || undefined,
-        grade: form.grade.trim() || undefined,
-        requestType: form.requestType,
-        quantity: quantityNum,
-        quantityUnit: form.quantityUnit.trim() || undefined,
-        askingPrice: askingPriceNum,
-        comments: form.comments.trim() || undefined,
-        expectedDeliveryDate: expectedDateISO,
-        // requestDate & salesRepId handled by backend
-      };
-
+      const payload = buildPayload();
       await createSalesPO(payload);
 
-      toast.success('Sales PO created and sent for admin review');
-      setForm(initialFormState);
+      toast.success('Inquiry created and sent for admin review');
+      reset();
     } catch (error: unknown) {
-      let message = 'Failed to create Sales PO';
+      let message = 'Failed to create inquiry';
 
       if (axios.isAxiosError(error)) {
         const data = error.response?.data as
           | { error?: string; message?: string; details?: string }
           | undefined;
-
         message = data?.error ?? data?.message ?? data?.details ?? error.message ?? message;
       } else if (error instanceof Error) {
         message = error.message || message;
       }
 
-      console.error('CreateSalesPO error:', error);
+      console.error('CreateInquiry error:', error);
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -148,7 +149,7 @@ const SalesCreatePOView: React.FC = () => {
   if (!authUser) {
     return (
       <div className="rounded-xl border border-stroke bg-background p-4 text-sm text-primaryText">
-        Please log in to create a Sales PO.
+        Please log in to create an inquiry.
       </div>
     );
   }
@@ -156,10 +157,10 @@ const SalesCreatePOView: React.FC = () => {
   return (
     <div className="flex h-full flex-col gap-4">
       <header>
-        <h2 className="text-lg font-semibold text-primaryText">Create Sales PO</h2>
+        <h2 className="text-lg font-semibold text-primaryText">Create Inquiry</h2>
         <p className="text-sm text-primaryText/70">
-          Capture client and product requirements. This PO will go to admins for approval and
-          trigger email notifications.
+          Capture client and product requirements. This inquiry goes to admin for review and routing
+          to purchase/production.
         </p>
       </header>
 
@@ -167,32 +168,24 @@ const SalesCreatePOView: React.FC = () => {
         onSubmit={handleSubmit}
         className="grid flex-1 grid-cols-1 gap-4 rounded-xl border border-stroke bg-foreground p-4 shadow-custom md:grid-cols-2"
       >
-        {/* LEFT COLUMN */}
+        {/* LEFT */}
         <div className="space-y-4">
-          {/* Product */}
+          {/* Product Name */}
           <div>
             <label className="block text-sm font-medium text-primaryText">
               Product<span className="text-red-500">*</span>
             </label>
-            <select
-              name="productId"
-              value={form.productId}
+            <input
+              type="text"
+              name="productName"
+              value={form.productName}
               onChange={handleChange}
+              placeholder="e.g. Chilli Powder"
               className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              <option value="">Select product</option>
-              {sortedProducts.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                  {p.code ? ` (${p.code})` : ''}
-                </option>
-              ))}
-            </select>
-            {sortedProducts.length === 0 && (
-              <p className="mt-1 text-xs text-primaryText/60">
-                No products loaded yet. Ensure bootstrap data is fetched on login.
-              </p>
-            )}
+            />
+            <p className="mt-1 text-[11px] text-primaryText/60">
+              Tip: keep it human-readable. Admin/purchase/production will see this as-is.
+            </p>
           </div>
 
           {/* Company Name */}
@@ -236,7 +229,7 @@ const SalesCreatePOView: React.FC = () => {
             />
           </div>
 
-          {/* Contact details */}
+          {/* Contact */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-primaryText">Contact Name</label>
@@ -272,7 +265,7 @@ const SalesCreatePOView: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN */}
+        {/* RIGHT */}
         <div className="space-y-4">
           {/* Purity & Grade */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -321,13 +314,15 @@ const SalesCreatePOView: React.FC = () => {
                 Quantity<span className="text-red-500">*</span>
               </label>
               <input
-                type="number"
+                type="text"
                 name="quantity"
+                inputMode="decimal"
                 value={form.quantity}
                 onChange={handleChange}
                 className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
+
             <div>
               <label className="block text-sm font-medium text-primaryText">Unit</label>
               <select
@@ -343,11 +338,13 @@ const SalesCreatePOView: React.FC = () => {
                 ))}
               </select>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-primaryText">Asking Price</label>
               <input
-                type="number"
+                type="text"
                 name="askingPrice"
+                inputMode="decimal"
                 value={form.askingPrice}
                 onChange={handleChange}
                 placeholder="Optional"
@@ -378,7 +375,7 @@ const SalesCreatePOView: React.FC = () => {
               value={form.comments}
               onChange={handleChange}
               rows={3}
-              placeholder="Any special instructions or negotiation notes…"
+              placeholder="Any special instructions / negotiation notes…"
               className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
@@ -390,7 +387,7 @@ const SalesCreatePOView: React.FC = () => {
               disabled={submitting}
               className="inline-flex items-center rounded-md bg-accent px-4 py-2 text-sm font-medium text-background shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? 'Creating PO…' : 'Create PO'}
+              {submitting ? 'Creating Inquiry…' : 'Create Inquiry'}
             </button>
           </div>
         </div>
@@ -399,4 +396,4 @@ const SalesCreatePOView: React.FC = () => {
   );
 };
 
-export default SalesCreatePOView;
+export default SalesCreateInquiryView;

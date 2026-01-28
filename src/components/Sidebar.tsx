@@ -49,8 +49,8 @@ const PRODUCTION_SECTION: NavSection = {
 const BASE_SALES_LINKS: NavSection = {
   title: 'Sales',
   links: [
-    { to: '/sales?view=create', label: 'Create PO', icon: PlusCircle },
-    { to: '/sales?view=my-pos', label: 'My POs', icon: ListChecks },
+    { to: '/sales?view=create-inquiry', label: 'Create Inquiry', icon: PlusCircle },
+    { to: '/sales?view=my-inquiries', label: 'My Inquiries', icon: ListChecks },
     { to: '/sales?view=all-pos', label: 'All POs', icon: ClipboardList },
     { to: '/sales?view=admin-review', label: 'Admin Review', icon: ShieldCheck },
     { to: '/sales?view=purchase-queue', label: 'Purchase Queue', icon: ShoppingCart },
@@ -94,7 +94,7 @@ const Sidebar = ({ onSelect, collapsed = false, toggleCollapsed }: SidebarProps)
   } else if (isSales) {
     // Sales → only Create + My POs
     salesLinks = BASE_SALES_LINKS.links.filter((link) =>
-      ['/sales?view=create', '/sales?view=my-pos'].includes(link.to)
+      ['/sales?view=create-inquiry', '/sales?view=my-inquiries'].includes(link.to)
     );
   } else if (isPurchase) {
     // Purchase → only Purchase Queue
