@@ -5,13 +5,9 @@ import { Loader } from '@/components/ui/Loader';
 const ProtectedLayout = () => {
   const { authUser, isLoading } = useAuthContext();
 
-  if (isLoading) {
-    return <Loader />;
-  }
+  if (isLoading) return <Loader />;
 
-  if (!authUser) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!authUser) return <Navigate to="/login" replace />;
 
   return <Outlet />;
 };

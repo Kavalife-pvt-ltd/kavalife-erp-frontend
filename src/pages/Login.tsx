@@ -18,8 +18,8 @@ const Login = () => {
     setLoading(true);
     try {
       const user = await loginUser(username, password);
-      await useBootstrapStore.getState().load();
       setAuthUser(user.data);
+      await useBootstrapStore.getState().load();
       navigate('/');
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -91,6 +91,17 @@ const Login = () => {
           >
             {loading ? 'Logging in…' : 'Login'}
           </button>
+
+          {/* Request access */}
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => navigate('/request-access')}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              New employee? Request access
+            </button>
+          </div>
         </form>
       </section>
     </main>
