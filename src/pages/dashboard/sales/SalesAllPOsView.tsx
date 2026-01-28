@@ -6,7 +6,7 @@ import { useAuthContext } from '@/hooks/useAuthContext';
 import { Loader } from '@/components/ui/Loader';
 import SalesPOCard from '@/components/ui/SalesPOCard';
 import type { SalesPO, SalesPOStatusLog } from '@/types/sales';
-import { getSalesPOs, getSalesPOStatusLog } from '@/api/sales';
+import { listSalesPO, getSalesPOStatusLog } from '@/api/sales';
 
 type DetailModalProps = {
   po: SalesPO;
@@ -290,7 +290,7 @@ const SalesAllPOsView: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const res = await getSalesPOs(); // no filters → all POs
+        const res = await listSalesPO(); // no filters → all POs
         if (!cancelled) setData(res);
       } catch (err: unknown) {
         if (cancelled) return;

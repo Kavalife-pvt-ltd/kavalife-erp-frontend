@@ -9,11 +9,14 @@ export type SalesPOStatus =
   | 'client_rejected'
   | 'final_admin_approved'
   | 'routed_to_purchase'
+  | 'purchase_priced'
   | 'routed_to_production'
   | 'admin_rejected'
   | 'purchase_completed'
   | 'production_completed'
   | 'closed'
+  | 'purchase_approved'
+  | 'production_approved'
   | 'cancelled';
 
 export type SalesPORequestType = 'sample' | 'purchase';
@@ -43,6 +46,7 @@ export interface SalesPO {
   quantity: number;
   quantityUnit?: string | null;
   askingPrice?: number | null;
+  purchasePrice?: number | null;
 
   comments?: string | null;
 
@@ -83,7 +87,7 @@ export interface SalesPOStatusLog {
 }
 
 export interface CreateSalesPORequest {
-  productId: number;
+  productName: string;
   companyName: string;
   companyAddress: string;
   coaUrl?: string;
