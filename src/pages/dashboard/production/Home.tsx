@@ -23,10 +23,10 @@ export type ActionItem = {
 export const DashboardHome = () => {
   const navigate = useNavigate();
   const { authUser } = useAuthContext() as {
-    authUser?: { username?: string; role?: string; department?: string };
+    authUser?: { username?: string; name?: string; role?: string; department?: string };
   };
 
-  const name = authUser?.username ?? 'there';
+  const name = authUser?.name ?? 'there';
   const role = authUser?.role ?? 'user';
   const department = authUser?.department ?? '';
 
