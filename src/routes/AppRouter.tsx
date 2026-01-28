@@ -14,11 +14,14 @@ import StrippingFormPage from '@/components/forms/StrippingFormPage';
 import PurificationPage from '@/pages/dashboard/production/Purification';
 import PurificationFormPage from '@/components/forms/PurificationFormPage';
 import Sales from '@/pages/dashboard/sales/Sales';
+import EmployeePanel from '@/pages/dashboard/admin/EmployeePanel';
+import RequestAccess from '@/pages/RequestAccess';
 
 const AppRouter = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/request-access" element={<RequestAccess />} />
 
       <Route element={<ProtectedLayout />}>
         <Route element={<DashboardLayout />}>
@@ -37,6 +40,8 @@ const AppRouter = () => {
           <Route path="decolorisation/form" element={<GoodsReceivedNote />} />
 
           <Route path="sales" element={<Sales />} />
+
+          <Route path="employees" element={<EmployeePanel />} />
         </Route>
       </Route>
     </Routes>

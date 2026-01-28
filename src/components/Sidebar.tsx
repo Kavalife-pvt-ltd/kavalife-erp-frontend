@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   Settings2,
+  Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import clsx from 'clsx';
@@ -57,6 +58,11 @@ const BASE_SALES_LINKS: NavSection = {
     { to: '/sales?view=production-queue', label: 'Production Queue', icon: Settings2 },
     { to: '/sales?view=dashboard', label: 'Sales Dashboard', icon: BarChart3 },
   ],
+};
+
+const ADMIN_SECTION: NavSection = {
+  title: 'Admin',
+  links: [{ to: '/employees', label: 'Employees', icon: Users }],
 };
 
 const Sidebar = ({ onSelect, collapsed = false, toggleCollapsed }: SidebarProps) => {
@@ -179,6 +185,7 @@ const Sidebar = ({ onSelect, collapsed = false, toggleCollapsed }: SidebarProps)
 
         {canSeeProductionSection && renderSection(PRODUCTION_SECTION)}
         {canSeeSalesSection && renderSection(salesSection)}
+        {isAdmin && renderSection(ADMIN_SECTION)}
       </div>
     </nav>
   );
