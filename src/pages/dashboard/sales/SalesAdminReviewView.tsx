@@ -1,20 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { Loader } from '@/components/ui/Loader';
 import SalesPOCard from '@/components/ui/SalesPOCard';
 import type { SalesPO } from '@/types/sales';
 import { listSalesPO, updateSalesPOStatus } from '@/api/sales';
+import { getCOASignedUrl } from '@/api/files';
 
 type AdminReviewModalProps = {
   po: SalesPO;
   onClose: () => void;
   onUpdated: (updated: SalesPO) => void;
+  onOpenCOA?: (po: SalesPO) => void;
 };
 
-const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpdated }) => {
+const AdminReviewModal: React.FC<AdminReviewModalProps> = ({
+  po,
+  onClose,
+  onUpdated,
+  onOpenCOA,
+}) => {
   const [decision, setDecision] = useState<'approve' | 'reject'>('approve');
   const [route, setRoute] = useState<'purchase' | 'production'>('production');
   const [notes, setNotes] = useState('');
@@ -46,7 +52,6 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
           toStatus = 'admin_rejected';
         }
       } else if (isPriceApproval) {
-        // ✅ new: admin approving purchase price
         if (decision === 'approve') {
           toStatus = 'purchase_approved';
         } else {
@@ -95,6 +100,14 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
     }
   };
 
+  const handleViewCOA = () => {
+    if (!po.coaUrl) {
+      toast.error('No COA uploaded');
+      return;
+    }
+    onOpenCOA?.(po);
+  };
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
       <div className="w-full max-w-lg rounded-xl border border-stroke bg-foreground p-4 shadow-custom">
@@ -108,6 +121,7 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
             </p>
             <p className="text-[11px] text-primaryText/60">Current status: {po.status}</p>
           </div>
+
           <button
             type="button"
             onClick={onClose}
@@ -117,6 +131,7 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
           </button>
         </header>
 
+        {/* Meta */}
         <section className="mb-3 space-y-2 text-xs text-primaryText/80">
           <div>
             <span className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
@@ -124,6 +139,7 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
             </span>
             <p>{createdDate || '—'}</p>
           </div>
+
           {po.comments && (
             <div>
               <span className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
@@ -132,6 +148,7 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
               <p className="whitespace-pre-line">{po.comments}</p>
             </div>
           )}
+
           {isPurchasePriceReview && (
             <section className="mb-2 rounded-lg border border-stroke bg-background p-2 text-xs text-primaryText">
               <div className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
@@ -142,6 +159,41 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
           )}
         </section>
 
+        {/* Documents */}
+        <section className="mb-3 space-y-2">
+          <div className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
+            Documents
+          </div>
+
+          {po.coaUrl ? (
+            <div className="flex items-center justify-between rounded-lg border border-stroke bg-background p-2 text-xs">
+              <span className="flex items-center gap-2">📄 COA</span>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleViewCOA}
+                  className="text-accent hover:underline"
+                >
+                  View
+                </button>
+
+                <a
+                  href={po.coaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primaryText/70 hover:underline"
+                >
+                  Download
+                </a>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-primaryText/60">No documents uploaded</p>
+          )}
+        </section>
+
+        {/* Actions */}
         <form onSubmit={handleSubmit} className="space-y-3">
           {/* Decision */}
           <div className="flex gap-4 text-xs text-primaryText">
@@ -162,6 +214,7 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
                     : 'Final Approve'}
               </span>
             </label>
+
             <label className="flex items-center gap-1">
               <input
                 type="radio"
@@ -175,12 +228,13 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
             </label>
           </div>
 
-          {/* Route only for initial review */}
+          {/* Route */}
           {isInitialReview && decision === 'approve' && (
             <div className="flex flex-wrap gap-4 text-xs text-primaryText">
               <span className="text-[11px] uppercase tracking-wide text-primaryText/60">
                 Route to
               </span>
+
               <label className="flex items-center gap-1">
                 <input
                   type="radio"
@@ -192,6 +246,7 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
                 />
                 <span>Production</span>
               </label>
+
               <label className="flex items-center gap-1">
                 <input
                   type="radio"
@@ -238,6 +293,7 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
             >
               Cancel
             </button>
+
             <button
               type="submit"
               className="rounded-lg bg-accent px-3 py-1 text-xs font-medium text-background hover:opacity-90 disabled:opacity-60"
@@ -250,7 +306,9 @@ const AdminReviewModal: React.FC<AdminReviewModalProps> = ({ po, onClose, onUpda
                 : decision === 'approve'
                   ? isInitialReview
                     ? 'Approve & Route'
-                    : 'Final Approve'
+                    : isPriceApproval
+                      ? 'Approve'
+                      : 'Final Approve'
                   : 'Reject'}
             </button>
           </div>
@@ -269,6 +327,27 @@ const SalesAdminReviewView: React.FC = () => {
 
   const role = (authUser?.role as string | undefined) ?? 'sales';
 
+  const openCOA = async (po: SalesPO) => {
+    const path = po.coaUrl?.trim();
+    if (!path) {
+      toast.error('COA not available');
+      return;
+    }
+
+    try {
+      if (path.startsWith('http://') || path.startsWith('https://')) {
+        window.open(path, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      const signed = await getCOASignedUrl(path);
+      window.open(signed, '_blank', 'noopener,noreferrer');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to open COA';
+      toast.error(msg);
+    }
+  };
+
   useEffect(() => {
     if (!authUser?.id) {
       setLoading(false);
@@ -283,12 +362,9 @@ const SalesAdminReviewView: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        // 🔥 Show all POs currently with admin
         const res = await listSalesPO({ sendTo: 'admin' });
 
-        if (!cancelled) {
-          setData(res);
-        }
+        if (!cancelled) setData(res);
       } catch (err: unknown) {
         if (cancelled) return;
 
@@ -305,14 +381,11 @@ const SalesAdminReviewView: React.FC = () => {
 
         setError(message);
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     };
 
     run();
-
     return () => {
       cancelled = true;
     };
@@ -357,6 +430,7 @@ const SalesAdminReviewView: React.FC = () => {
           <h2 className="text-sm font-semibold text-primaryText">Admin Review</h2>
           <span className="text-xs text-primaryText/70">{data.length} pending</span>
         </div>
+
         {data.length === 0 ? (
           <div className="rounded-xl border border-stroke bg-foreground p-6 text-center text-sm text-primaryText/80">
             No POs currently in Admin queue.
@@ -364,7 +438,12 @@ const SalesAdminReviewView: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {data.map((po) => (
-              <SalesPOCard key={po.id} po={po} onClick={() => setSelectedPO(po)} />
+              <SalesPOCard
+                key={po.id}
+                po={po}
+                onClick={() => setSelectedPO(po)}
+                onOpenCOA={openCOA}
+              />
             ))}
           </div>
         )}
@@ -375,9 +454,9 @@ const SalesAdminReviewView: React.FC = () => {
           po={selectedPO}
           onClose={() => setSelectedPO(null)}
           onUpdated={(updated) => {
-            // remove from list after decision
             setData((prev) => prev.filter((p) => p.id !== updated.id));
           }}
+          onOpenCOA={openCOA}
         />
       )}
     </>

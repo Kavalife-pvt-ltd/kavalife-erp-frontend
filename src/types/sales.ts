@@ -32,6 +32,7 @@ export interface SalesPO {
 
   companyName: string;
   companyAddress: string;
+  coaUrl?: string;
 
   companyContactName?: string | null;
   companyContactNumber?: string | null;

@@ -1,11 +1,13 @@
 import React from 'react';
 import type { SalesPO } from '@/types/sales';
 import clsx from 'clsx';
+import { FileImage } from 'lucide-react';
 
 type Props = {
   po: SalesPO;
   maskCompany?: boolean;
   onClick?: () => void;
+  onOpenCOA?: (po: SalesPO) => void; // ✅ add
 };
 
 const statusLabelMap: Record<string, string> = {
@@ -46,7 +48,7 @@ const statusColorClass = (status: string) =>
 const isPOStage = (po: SalesPO) =>
   po.status === 'final_admin_approved' || po.status === 'closed' || !!po.poNumber;
 
-const SalesPOCard: React.FC<Props> = ({ po, maskCompany = false, onClick }) => {
+const SalesPOCard: React.FC<Props> = ({ po, maskCompany = false, onClick, onOpenCOA }) => {
   const poNumber = po.poNumber ?? null;
   const isPO = isPOStage(po);
 
@@ -64,6 +66,8 @@ const SalesPOCard: React.FC<Props> = ({ po, maskCompany = false, onClick }) => {
 
   const Wrapper: React.ElementType = onClick ? 'button' : 'article';
 
+  const hasCOA = Boolean(po.coaUrl && po.coaUrl.trim());
+
   return (
     <Wrapper
       type={onClick ? 'button' : undefined}
@@ -76,9 +80,27 @@ const SalesPOCard: React.FC<Props> = ({ po, maskCompany = false, onClick }) => {
     >
       <header className="flex items-start justify-between gap-2">
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-primaryText">
-            {poNumber ? `PO #${poNumber}` : 'Inquiry'}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-primaryText">
+              {poNumber ? `PO #${poNumber}` : 'Inquiry'}
+            </h3>
+
+            {hasCOA && (
+              <button
+                type="button"
+                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                  e.stopPropagation(); // ✅ don't trigger card click
+                  onOpenCOA?.(po);
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-stroke bg-background px-2 py-0.5 text-[11px] font-medium text-primaryText hover:bg-stroke/30"
+                title="View COA"
+              >
+                <FileImage className="h-3.5 w-3.5" />
+                COA
+              </button>
+            )}
+          </div>
+
           <p className="text-xs text-primaryText/70">{productName}</p>
         </div>
 
