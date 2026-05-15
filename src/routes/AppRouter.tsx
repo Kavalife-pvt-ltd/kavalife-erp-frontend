@@ -16,6 +16,9 @@ import PurificationFormPage from '@/components/forms/PurificationFormPage';
 import Sales from '@/pages/dashboard/sales/Sales';
 import EmployeePanel from '@/pages/dashboard/admin/EmployeePanel';
 import RequestAccess from '@/pages/RequestAccess';
+import { BatchHistoryPage } from '@/pages/manufacturing/BatchHistoryPage';
+import { ProcessBoardPage } from '@/pages/manufacturing/ProcessBoardPage';
+import { ProcessWorkspacePage } from '@/pages/manufacturing/ProcessWorkspacePage';
 
 const AppRouter = () => {
   return (
@@ -38,6 +41,10 @@ const AppRouter = () => {
           <Route path="purification/form" element={<PurificationFormPage />} />
           <Route path="decolorisation" element={<GoodsReceivedNote />} />
           <Route path="decolorisation/form" element={<GoodsReceivedNote />} />
+          <Route path="manufacturing/processes" element={<ProcessBoardPage />} />
+          <Route path="manufacturing/processes/:processCode" element={<ProcessBoardPage />} />
+          <Route path="manufacturing/workspace/:stepId" element={<ProcessWorkspacePage />} />
+          <Route path="manufacturing/batches/:batchId/history" element={<BatchHistoryPage />} />
 
           <Route path="sales" element={<Sales />} />
 
