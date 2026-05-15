@@ -34,33 +34,35 @@
   --receivedMessage: 0 0% 100%;
 }
 
-.dark {
-  color-scheme: dark;
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
 
-  --background: 222 47% 5%;
-  --foreground: 210 40% 98%;
-  --card: 222 47% 9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222 47% 9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 213 94% 68%;
-  --primary-foreground: 222 47% 8%;
-  --secondary: 217 33% 17%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217 33% 17%;
-  --muted-foreground: 215 20% 72%;
-  --accent: 213 94% 68%;
-  --accent-foreground: 222 47% 8%;
-  --destructive: 0 63% 46%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217 33% 22%;
-  --input: 217 33% 22%;
-  --ring: 213 94% 68%;
+    --background: 222 47% 5%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 213 94% 68%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 72%;
+    --accent: 213 94% 68%;
+    --accent-foreground: 222 47% 8%;
+    --destructive: 0 63% 46%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 22%;
+    --input: 217 33% 22%;
+    --ring: 213 94% 68%;
 
-  --primaryText: 210 40% 98%;
-  --captionPlaceholder: 215 20% 72%;
-  --stroke: 217 33% 22%;
-  --receivedMessage: 217 33% 17%;
+    --primaryText: 210 40% 98%;
+    --captionPlaceholder: 215 20% 72%;
+    --stroke: 217 33% 22%;
+    --receivedMessage: 217 33% 17%;
+  }
 }
 
 @layer base {
