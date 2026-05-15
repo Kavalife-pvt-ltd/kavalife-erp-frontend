@@ -5,39 +5,81 @@
 @tailwind utilities;
 
 :root {
-  /* Light mode */
-  --background: #f4f6f8;      /* app background */
-  --foreground: #ffffff;      /* card / panel background */
-  --primaryText: #111827;
-  --captionPlaceholder: #6b7280;
-  --stroke: #e5e7eb;
-  --receivedMessage: #ffffff;
-  --accent: #3b82f6;
+  color-scheme: light;
+
+  --background: 210 29% 97%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 217 91% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 217 91% 60%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 217 91% 50%;
+  --radius: 0.5rem;
+
+  --primaryText: 222 47% 11%;
+  --captionPlaceholder: 215 16% 47%;
+  --stroke: 214 32% 91%;
+  --receivedMessage: 0 0% 100%;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #020617;     /* main dark bg */
-    --foreground: #0b1120;     /* card bg slightly lighter */
-    --primaryText: #f9fafb;
-    --captionPlaceholder: #9ca3af;
-    --stroke: #374151;
-    --receivedMessage: #1f2937;
-    --accent: #60a5fa;
-  }
+.dark {
+  color-scheme: dark;
+
+  --background: 222 47% 5%;
+  --foreground: 210 40% 98%;
+  --card: 222 47% 9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 47% 9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 213 94% 68%;
+  --primary-foreground: 222 47% 8%;
+  --secondary: 217 33% 17%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 72%;
+  --accent: 213 94% 68%;
+  --accent-foreground: 222 47% 8%;
+  --destructive: 0 63% 46%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217 33% 22%;
+  --input: 217 33% 22%;
+  --ring: 213 94% 68%;
+
+  --primaryText: 210 40% 98%;
+  --captionPlaceholder: 215 20% 72%;
+  --stroke: 217 33% 22%;
+  --receivedMessage: 217 33% 17%;
 }
 
 @layer base {
+  * {
+    @apply border-border;
+  }
+
   html {
     font-family: 'Inter', sans-serif;
-    background-color: var(--background);
-    color: var(--foreground);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 
   body {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 
   a {
@@ -45,7 +87,12 @@
     color: inherit;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     margin: 0;
     padding: 0;
   }
