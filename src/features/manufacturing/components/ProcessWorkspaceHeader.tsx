@@ -14,7 +14,10 @@ type ProcessWorkspaceHeaderProps = {
 };
 
 export function ProcessWorkspaceHeader({ processStep }: ProcessWorkspaceHeaderProps) {
-  const quantityLabel = `${processStep.quantity.toLocaleString()} ${processStep.unit}`;
+  const quantityLabel =
+    processStep.quantity > 0
+      ? `${processStep.quantity.toLocaleString()} ${processStep.unit}`
+      : 'Not provided';
 
   return (
     <Card className="border-border bg-card">

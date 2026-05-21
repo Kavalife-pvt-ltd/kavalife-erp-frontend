@@ -9,6 +9,21 @@
 
 The backend now has a working straight-line manufacturing flow from inward material receipt to runtime process execution and QA/QC-gated step progression.
 
+> Important architecture note (May 2026 redesign direction)
+>
+> The currently implemented runtime engine is a successful straight-line proof-of-concept, but the long-term manufacturing model is evolving toward an inventory-driven material transformation engine.
+>
+> The future runtime direction is:
+>
+> ```text
+> Inventory lots are consumed into processes.
+> Processes produce new output lots.
+> Output lots return to inventory.
+> Future processes consume eligible inventory lots.
+> ```
+>
+> This replaces the earlier assumption that lots automatically progress linearly from one process step to the next.
+
 Tested happy-path flow:
 
 ```text
@@ -64,6 +79,7 @@ Decolorisation Step: 44 / Execution 7
 ```
 
 Confirmed working modules/APIs:
+
 - VIR create, verify, get one, get all
 - GRN create and list/view
 - generic QA/QC create, view, verify
@@ -82,6 +98,7 @@ Confirmed working modules/APIs:
 - batch history view returning nested batch → lots → steps timeline
 
 Important implementation notes:
+
 - backend must own timestamps and logged-in user attribution
 - frontend should not send trusted `created_by`, `checked_by`, `approved_by`, `created_at`, `checked_at`, or `approved_at` long-term
 - duplicate batch creation is blocked, but currently returns `INTERNAL_ERROR` / HTTP 500 and should become `409 Conflict`
@@ -114,9 +131,11 @@ This should be treated as the source of truth for schema planning until a newer 
 ## 2. Core terminology
 
 ## 2.1 Raw Material
+
 Incoming physical material received from a vendor/supplier.
 
 Examples:
+
 - Ashwagandha Root
 - Tulsi Leaves
 - Neem Bark
@@ -130,9 +149,11 @@ VIR → GRN → GRN QA/QC → Batch
 ---
 
 ## 2.2 Finished Product
+
 The final sellable or storable output after all required manufacturing processes and QA/QC are completed.
 
 Examples:
+
 - Ashwagandha Extract
 - Tulsi Extract Oil
 
@@ -141,9 +162,11 @@ Finished product enters finished goods inventory only after final approval/outpu
 ---
 
 ## 2.3 Product
+
 Broad master entity representing a material/product in the system.
 
 In v1, one master table represents:
+
 - raw material
 - intermediate material
 - finished product
@@ -151,6 +174,7 @@ In v1, one master table represents:
 Use a `material_type` field to distinguish them.
 
 Recommended values:
+
 - `raw_material`
 - `intermediate`
 - `finished_product`
@@ -158,9 +182,11 @@ Recommended values:
 ---
 
 ## 2.4 Vendor / Supplier
+
 External party from whom raw materials are purchased.
 
 Used in:
+
 - VIR
 - GRN
 - procurement history
@@ -168,9 +194,11 @@ Used in:
 ---
 
 ## 2.5 Customer / Client
+
 External party to whom finished goods are sold.
 
 Used in:
+
 - sales orders
 - stock allocation
 - dispatch/fulfilment
@@ -178,9 +206,11 @@ Used in:
 ---
 
 ## 2.6 Process
+
 A top-level manufacturing stage or pod in the factory.
 
 Examples:
+
 - Extraction
 - Stripping
 - Purification
@@ -188,6 +218,7 @@ Examples:
 - Packaging
 
 Important rules:
+
 - processes are fixed/static in v1
 - admin does not create processes in v1
 - admin only selects which processes belong to a workflow
@@ -195,11 +226,13 @@ Important rules:
 ---
 
 ## 2.7 Process Master
+
 Static list of all available top-level manufacturing processes in the plant.
 
 This is developer-defined and seeded into the system.
 
 Examples:
+
 - `EXT` → Extraction
 - `STR` → Stripping
 - `PUR` → Purification
@@ -207,6 +240,7 @@ Examples:
 - `PKG` → Packaging
 
 The Process Master maps to:
+
 - frontend modules
 - workflow builder
 - batch execution logic
@@ -214,6 +248,7 @@ The Process Master maps to:
 ---
 
 ## 2.8 Workflow
+
 Ordered sequence of processes required to produce a specific product/output.
 
 Example:
@@ -223,18 +258,22 @@ Extraction → Stripping → Purification → Packaging
 ```
 
 Important rules:
+
 - workflow is dynamic
 - workflow is configured by admin
 - workflow belongs to a product/material
 - only one active workflow per product in v1
-- batch creation copies the active workflow into runtime `lot_process_steps`
+- workflow defines allowed/recommended process progression
+- workflow does not automatically move inventory through processes
 
 ---
 
 ## 2.9 Workflow Step
+
 One ordered process inside a workflow.
 
 Example:
+
 - step 1 = Extraction
 - step 2 = Stripping
 - step 3 = Purification
@@ -244,13 +283,16 @@ This is a definition/template row, not runtime execution.
 ---
 
 ## 2.10 Process Pod
+
 Actual module/form/operational unit for a process.
 
 Examples:
+
 - Extraction module
 - Purification module
 
 A pod contains:
+
 - process-specific fields
 - QA/QC
 - reruns/rework
@@ -259,9 +301,11 @@ A pod contains:
 ---
 
 ## 2.11 QA/QC
+
 Quality check performed before batch creation and/or inside process steps.
 
 Current working rule:
+
 - GRN has QA/QC gate before batch creation
 - each workflow step can optionally require QA/QC
 - if a lot process step requires QA/QC, completion moves it to `awaiting_qaqc`
@@ -272,11 +316,13 @@ Current working rule:
 ---
 
 ## 2.12 VIR
+
 Vehicle Inspection Report.
 
 Represents the incoming delivery/vehicle inspection event.
 
 Used to capture:
+
 - delivery arrival
 - packaging/vehicle condition
 - vendor linkage
@@ -287,11 +333,13 @@ Used to capture:
 ---
 
 ## 2.13 GRN
+
 Goods Received Note.
 
 Represents the actual receipt of material after inspection.
 
 Used to capture:
+
 - which VIR was received
 - quantity
 - invoice details
@@ -302,6 +350,7 @@ Used to capture:
 GRN is the bridge between inward operations and manufacturing.
 
 Current v1 rule:
+
 - one VIR creates one GRN
 - GRN represents the full received quantity
 - GRN must pass QA/QC before batch creation
@@ -309,74 +358,154 @@ Current v1 rule:
 ---
 
 ## 2.14 Batch
-Manufacturing job/order created to process material through a workflow.
+
+Manufacturing umbrella/job/order created for a production objective.
 
 Example:
+
 - Batch `B001`
 
-A batch has:
-- source GRN
-- product/workflow
-- input quantity
-- current status
+A batch represents:
+
+- manufacturing grouping
+- production intent
+- operational tracking scope
+- costing/reporting scope
+
+A batch does not directly represent one physical quantity bucket.
+
+Lots/material may:
+
+- split
+- merge
+- blend
+- partially move
+  inside the same batch.
+
+A batch may contain:
+
+- many lots
+- many process executions
+- many inventory transformations
 
 v1 rules:
+
 - one GRN creates one batch
-- GRN represents the full received quantity
-- operational splitting happens after batch creation at the lot level
-- no multi-GRN batch in v1
-- future cross-GRN merging should be handled using explicit lot lineage, not by weakening the GRN-to-batch rule
+- batch starts with initial raw inventory derived from approved GRN quantity
+- future processes consume inventory from eligible lots
+- lineage must remain traceable back to source GRN/VIR/vendor
 
 ---
 
 ## 2.15 Lot
-Physical material unit inside a batch.
 
-In v1:
-- each batch starts with one initial lot
+Traceable material unit used inside manufacturing.
 
-Later:
-- a lot may split into sub-lots
-- sub-lots may merge back
+A lot represents:
 
-Important future rule:
-- if lots from different batches/GRNs are merged, the new lot must preserve explicit lineage
-- do not rely only on `parent_lot_id` for merge cases because one child lot may have multiple parent lots
+- physical material
+- processable inventory
+- traceable quantity movement
+- audit lineage node
 
-The UI may look like cards/tickets, but backend tracks lots/material.
+Examples:
+
+- raw turmeric lot
+- extracted WIP lot
+- filtered output lot
+- blended intermediate lot
+
+Important rules:
+
+- lots are immutable traceability identities
+- every process output creates a new output lot
+- lots may consume from multiple source lots
+- remaining quantity stays in inventory unless consumed
+- lots may later support split, merge, blend, transfer, hold, rework, and scrap flows
+
+Important distinction:
+
+- batch = manufacturing umbrella/job
+- lot = physical traceable material node
+
+## 2.15.1 Input Lot
+
+Lot/material quantity consumed into a process execution.
+
+Examples:
+
+- 250kg from raw turmeric lot A
+- 150kg from raw turmeric lot B
+
+Input lots are selected from eligible available inventory.
+
+---
+
+## 2.15.2 Output Lot
+
+New lot created as the output of a process execution.
+
+Examples:
+
+- extraction output lot
+- filtration output lot
+- final finished lot
+
+Important rule:
+
+- every completed manufacturing process creates one or more new output lots
+- output lots become inventory for future processes
 
 ---
 
 ## 2.16 Lot Process Step
-Runtime execution record showing one process step for one lot.
 
-This is how the system knows:
-- what process is active for a lot
-- what process is pending for a lot
-- what process is completed for a lot
-- when QA/QC is required before moving forward
+Workflow/runtime eligibility tracker for a lot.
+
+This represents:
+
+- which processes are allowed for a lot
+- which process stage a lot currently belongs to
+- whether QA/QC gates exist before next usage
+- whether the lot is eligible for downstream consumption
 
 Important distinction:
-- workflow step = definition/template
-- lot process step = runtime state for actual material
 
-Current tested behavior:
-- first step becomes `active` when a batch is created
-- active step can be started
-- completing a non-QA/QC step marks it `completed` and activates the next pending step
-- completing a QA/QC-required step marks it `awaiting_qaqc`
-- QA/QC approval for that step marks it `completed` and activates the next pending step
-- QA/QC rejection marks the step `failed`
-- QA/QC retest requirement marks the step `rework`
+- workflow step = definition/template
+- lot process step = runtime eligibility/state tracking
+- process execution = actual work/log/form record
+
+Original implementation model:
+
+- batch creation copied workflow directly into runtime lot process steps
+- completing one step automatically activated the next step
+
+Revised long-term architecture direction:
+
+- processes do not automatically push material forward
+- completed process outputs become inventory
+- future processes manually consume eligible inventory lots
+- workflow controls allowed progression, not automatic runtime movement
+
+Status examples:
+
+- pending
+- active
+- awaiting_qaqc
+- completed
+- failed
+- rework
 
 ---
 
 ## 2.17 Process Execution
+
 Detailed execution record for a process pod/form.
 
 This is where process-specific form data now lives.
 
 Examples:
+
 - temperature
 - pressure
 - equipment used
@@ -386,11 +515,13 @@ Examples:
 - operator/supervisor notes
 
 Important rule:
+
 - process form data should be stored flexibly using `form_data JSONB`
 - repeatable process cycles are stored inside `form_data.operation_logs`
 - do not hardcode separate Go structs for every process in v1
 
 Current status:
+
 - implemented
 - E2E tested in May 2026 for Extraction, Stripping, Purification, and Decolorisation
 - one `process_execution` record was created per runtime `lot_process_step`
@@ -399,41 +530,91 @@ Current status:
 ---
 
 ## 2.18 Raw Inventory
-Stock of incoming raw materials received through GRN.
 
-Example:
-- `1200 kg Ashwagandha Root`
+Available incoming raw material inventory derived from approved GRNs.
+
+Examples:
+
+- 1200kg Ashwagandha Root
+- 500kg Turmeric Root
+
+Raw inventory is selectable only for eligible starting processes defined by workflow.
 
 ---
 
 ## 2.19 Work In Progress (WIP)
-Material currently being processed inside manufacturing.
 
-This is not yet sellable.
+Intermediate inventory produced during manufacturing.
+
+Examples:
+
+- extraction output
+- filtered material
+- partially processed intermediate material
+
+WIP inventory:
+
+- is not yet sellable
+- may be consumed by future manufacturing processes
+- remains traceable to source lots/GRNs/vendors
 
 ---
 
 ## 2.20 Finished Goods Inventory
+
 Final approved output that is packed/stored and ready to sell or dispatch.
 
 ---
 
 ## 2.21 Inventory Ledger
-Transaction-based source of truth for stock.
 
-Instead of storing only a current stock number, the system records stock movements like:
-- raw material receipt
-- production output
-- shipment
+Transaction-based source of truth for inventory movement.
+
+Inventory movement examples:
+
+- GRN receipt
+- process consumption
+- process output
 - adjustment
 - scrap
-- return
+- hold
+- release
+- transfer
+- shipment
 
-Stock is computed from relevant inventory transactions.
+Recommended architecture:
+
+- inventory_lots = current inventory/material state
+- inventory_transactions = historical movement ledger
+
+Current quantity should be derived from controlled inventory mutations and/or ledger-backed calculations.
+
+## 2.21.1 Inventory Lot
+
+Current material/inventory bucket representing available quantity.
+
+Examples:
+
+- raw inventory lot
+- WIP inventory lot
+- finished goods lot
+
+Recommended future fields:
+
+- lot number
+- product
+- available quantity
+- inventory type
+- status
+- source reference
+- current location
+
+Inventory lots are the main selectable material units during process creation.
 
 ---
 
 ## 2.22 Allocation / Reservation
+
 Stock committed to a sales order but not yet shipped.
 
 Used to prevent overselling.
@@ -441,6 +622,7 @@ Used to prevent overselling.
 ---
 
 ## 2.23 Available To Promise (ATP)
+
 Stock available for immediate new commitments.
 
 Formula idea:
@@ -452,9 +634,11 @@ ATP = Finished Stock - Reserved Stock
 ---
 
 ## 2.24 Lot Lineage
+
 Future traceability graph showing how lots split, merge, blend, or transfer material.
 
 Important because:
+
 - a child lot can have many parent lots
 - merged lots may come from different batches or GRNs
 - finished output must be traceable back to source GRNs/vendors
@@ -468,20 +652,25 @@ Recommended future table: `lot_lineage`.
 These are frozen unless intentionally revised.
 
 ### 3.1 Process Master
+
 - static
 - developer-defined
 - not editable by admin in v1
 
 ### 3.2 Workflow Builder
+
 - admin-configurable
 - built using Process Master
 - ordered sequence of process steps
 
 ### 3.3 Workflow Ownership
+
 Workflow belongs to a product/material.
 
 ### 3.4 Batch Source Rule
+
 In v1:
+
 - one GRN creates one batch
 - one batch has one source GRN
 - GRN quantity is treated as the full received quantity
@@ -490,12 +679,15 @@ In v1:
 - future multi-GRN material combination must be represented through lot lineage or a derived/blended batch, not by attaching multiple GRNs directly to one v1 batch
 
 ### 3.5 Inventory Buckets
+
 Three clear inventory buckets:
+
 - raw inventory
 - WIP
 - finished goods
 
 ### 3.6 QA/QC
+
 - GRN has QA/QC gate before batch creation
 - each workflow step can optionally require QA/QC
 - if a lot process step requires QA/QC, completion moves it to `awaiting_qaqc`
@@ -504,14 +696,28 @@ Three clear inventory buckets:
 - final usable output only counts after passing required checks
 
 ### 3.7 v1 Manufacturing Engine Scope
-- one batch starts with one initial lot
-- linear movement works first
-- QA/QC-gated step progression works
-- split/merge is planned later
-- split/merge must preserve quantity integrity and lineage
+
+Initial implementation successfully proved:
+
+- linear workflow progression
+- QA/QC-gated runtime movement
+- runtime process execution persistence
+- batch/lot/runtime orchestration
+
+However, the long-term architecture direction is now:
+
+- inventory-driven manufacturing
+- process executions consume inventory lots
+- process executions produce output lots
+- output lots return to inventory
+- future processes consume eligible inventory lots
+- workflow defines allowed progression, not automatic runtime movement
+- split/merge/blend/rework must preserve lineage
 
 ### 3.8 Runtime Naming Rule
+
 Use business-language runtime names:
+
 - `batches`
 - `batch_lots`
 - `lot_process_steps`
@@ -519,9 +725,11 @@ Use business-language runtime names:
 Do not use vague runtime names like `workflow_instances` for the redesigned system.
 
 ### 3.9 Current duplicate/integrity rules to implement next
+
 The happy-path flow works, and some duplicate prevention exists, but production safety still requires polished backend errors and DB constraints.
 
 Locked v1 rules:
+
 - one VIR can create only one GRN
 - one GRN can create only one batch
 - one target can have only one pending QA/QC at a time
@@ -543,11 +751,13 @@ WHERE status = 'pending_verification';
 ```
 
 Recommended backend checks:
+
 - before GRN insert, check whether a GRN already exists for the VIR and return the existing `grn_number` or a clear error
 - before batch insert, check whether a batch already exists for the GRN and return the existing `batch_number` or a clear error
 - before QA/QC insert, check whether a pending QA/QC already exists for the reference and return the existing QA/QC id or a clear error
 
 Current observed limitation:
+
 - duplicate batch creation is blocked correctly
 - current response uses `INTERNAL_ERROR` / HTTP 500
 - target response should be `409 Conflict`
@@ -559,9 +769,11 @@ Current observed limitation:
 The project is not live yet, so the schema is being redesigned cleanly instead of incrementally patched.
 
 ### Final decision
+
 Use a **clean redesign** for the manufacturing and workflow engine.
 
 That means:
+
 - old workflow/manufacturing tables are reference only
 - new schema becomes the single source of truth
 - naming must match business reality
@@ -572,6 +784,7 @@ That means:
 ## 5. Keep / polish / redesign / add / decommission
 
 ## 5.1 Keep and polish
+
 These features/tables are conceptually good and should remain, with cleanup where needed:
 
 - `users`
@@ -581,6 +794,7 @@ These features/tables are conceptually good and should remain, with cleanup wher
 - `sales_po` for now
 
 Notes:
+
 - login flow is acceptable
 - passwords are already hashed with bcrypt
 - auth is not the first rebuild target
@@ -588,6 +802,7 @@ Notes:
 ---
 
 ## 5.2 Keep table name, but redesign/clean structure if needed
+
 These names are acceptable and worth preserving, but their structures may be cleaned:
 
 - `products`
@@ -600,6 +815,7 @@ These names are acceptable and worth preserving, but their structures may be cle
 ---
 
 ## 5.3 Add new tables
+
 These are required for the redesigned schema:
 
 - `customers`
@@ -615,6 +831,7 @@ These are required for the redesigned schema:
 ---
 
 ## 5.4 Decommission / stop using for future development
+
 These should not drive the future model:
 
 - `workflow_instances`
@@ -629,6 +846,7 @@ These should not drive the future model:
 - `new_user` as a table name long-term (concept stays; table can be renamed later if desired)
 
 Important:
+
 - decommission does not mean immediate delete
 - these can remain temporarily as historical/reference structures
 - no new feature work should depend on them
@@ -638,6 +856,7 @@ Important:
 ## 6. Final logical architecture
 
 ### 6.1 Static definition layer
+
 This is configured by admin or seeded by developers.
 
 ```text
@@ -653,6 +872,7 @@ Product Workflow Steps
 ---
 
 ### 6.2 Runtime execution layer
+
 This is created when actual material starts moving through the system.
 
 ```text
@@ -664,22 +884,25 @@ GRN
   ↓
 GRN QA/QC
   ↓
+Raw Inventory Lots
+  ↓
 Batch
   ↓
-Initial Lot
+Process Execution consumes eligible inventory lots
   ↓
-Lot Process Steps
+Process Execution creates output lots
   ↓
-Process Execution / detailed pod data
+Output lots return to WIP inventory
   ↓
-Step QA/QC when required
+Future processes consume eligible WIP inventory lots
   ↓
-Finished Output
+Finished Goods Inventory
 ```
 
 ---
 
 ### 6.3 Future inventory/sales layer
+
 This will be built later on top of the runtime engine.
 
 ```text
@@ -699,13 +922,16 @@ Shipments
 ## 7.1 Identity / access
 
 ### `users`
+
 Purpose: application users/employees who log into ERP.
 
 Current state:
+
 - keep existing flow
 - polish later if needed
 
 Notable current columns:
+
 - `id`
 - `username`
 - `role`
@@ -719,6 +945,7 @@ Notable current columns:
 - `created_at`
 
 Future cleanup ideas:
+
 - rename `password` to `password_hash`
 - add `updated_at`
 - add `is_active`
@@ -728,13 +955,16 @@ Future cleanup ideas:
 ---
 
 ### `new_user`
+
 Purpose: pending signup requests awaiting admin approval.
 
 Current state:
+
 - keep flow for now
 - concept is valid
 
 Future cleanup ideas:
+
 - rename table to something clearer like `user_registration_requests`
 - add `status`, `reviewed_by`, `reviewed_at`, `rejection_reason`
 
@@ -743,18 +973,22 @@ Future cleanup ideas:
 ## 7.2 Business masters
 
 ### `vendors`
+
 Purpose: supplier/vendor profiles.
 
 Current state:
+
 - keep existing table
 - expand later if more metadata is needed
 
 ---
 
 ### `customers`
+
 Purpose: customer/client profiles for sales.
 
 Recommended/current columns:
+
 - `id`
 - `customer_code`
 - `customer_name`
@@ -775,14 +1009,17 @@ Recommended/current columns:
 ---
 
 ### `products`
+
 Purpose: master table for all system materials/products.
 
 This table represents:
+
 - raw materials
 - intermediate materials
 - finished products
 
 Recommended columns:
+
 - `id`
 - `code`
 - `name`
@@ -795,6 +1032,7 @@ Recommended columns:
 - `updated_at`
 
 Important note:
+
 - this is the canonical material/product table
 - `material_type` is the differentiator
 - active workflow is tied to product
@@ -804,9 +1042,11 @@ Important note:
 ## 7.3 Process definition layer
 
 ### `process_definitions`
+
 Purpose: static Process Master.
 
 Recommended columns:
+
 - `id`
 - `code`
 - `name`
@@ -820,6 +1060,7 @@ Recommended columns:
 - `updated_at`
 
 Examples:
+
 - `EXT` → Extraction
 - `STR` → Stripping
 - `PUR` → Purification
@@ -827,15 +1068,18 @@ Examples:
 - `PKG` → Packaging
 
 Recommended usage:
+
 - only rows with `is_manufacturing_process = true` are used in manufacturing workflow builder
 - process-specific forms should eventually be generated from `default_form_schema`
 
 ---
 
 ### `product_workflows`
+
 Purpose: workflow header table.
 
 Recommended/current columns:
+
 - `id`
 - `product_id` → FK to `products.id`
 - `version`
@@ -847,17 +1091,21 @@ Recommended/current columns:
 - `updated_at`
 
 Meaning:
+
 - one row = one workflow definition for one product/material
 
 Rule:
+
 - in v1, only one active workflow per product
 
 ---
 
 ### `product_workflow_steps`
+
 Purpose: ordered list of processes inside a workflow definition.
 
 Recommended/current columns:
+
 - `id`
 - `workflow_id` → FK to `product_workflows.id`
 - `process_definition_id` → FK to `process_definitions.id`
@@ -869,6 +1117,7 @@ Recommended/current columns:
 - `updated_at`
 
 Important constraints:
+
 - unique (`workflow_id`, `step_order`)
 - explicit ordering, not arrays
 
@@ -887,9 +1136,11 @@ Ashwagandha Extract Workflow
 ## 7.4 Inward flow
 
 ### `vir`
+
 Purpose: vehicle inspection event for incoming material.
 
 Recommended/current columns:
+
 - `id`
 - `vir_number`
 - `vendor_id`
@@ -903,19 +1154,23 @@ Recommended/current columns:
 - `created_at`
 
 Current working behavior:
+
 - create VIR with vendor/product/checklist
 - verify VIR to mark as `completed`
 - GRN can only be created after VIR is completed
 
 Future cleanup:
+
 - backend should auto-fill `created_by`, `created_at`, `checked_by`, and `checked_at`
 
 ---
 
 ### `grns`
+
 Purpose: actual material receipt after inspection.
 
 Recommended/current columns:
+
 - `id`
 - `grn_number`
 - `vir_id`
@@ -932,6 +1187,7 @@ Recommended/current columns:
 - `updated_at`
 
 Important note:
+
 - `vir_id` is the relational link
 - product/vendor are derived through `vir`
 - `vir_number` may be kept temporarily for display/legacy convenience
@@ -939,6 +1195,7 @@ Important note:
 - approved GRN QA/QC is required before creating a batch
 
 Current working behavior:
+
 - GRN can be created only from a completed VIR
 - GRN starts with `qaqc_status = pending_verification`
 - GRN QA/QC approval updates `qaqc_status = approved`
@@ -948,9 +1205,11 @@ Current working behavior:
 ## 7.5 Manufacturing runtime
 
 ### `batches`
+
 Purpose: manufacturing job/order created from GRN material.
 
 Recommended/current columns:
+
 - `id`
 - `batch_number`
 - `source_grn_id`
@@ -968,6 +1227,7 @@ Recommended/current columns:
 - `updated_at`
 
 Status examples:
+
 - `pending`
 - `in_progress`
 - `completed`
@@ -975,6 +1235,7 @@ Status examples:
 - `cancelled`
 
 Current working behavior:
+
 - created only from a GRN with `qaqc_status = approved`
 - product is derived from GRN → VIR → product
 - active product workflow is selected automatically
@@ -984,9 +1245,11 @@ Current working behavior:
 ---
 
 ### `batch_lots`
-Purpose: physical material units inside a batch.
+
+Purpose: traceable material lots grouped under a manufacturing batch.
 
 Recommended/current columns:
+
 - `id`
 - `batch_id`
 - `lot_number`
@@ -997,23 +1260,28 @@ Recommended/current columns:
 - `created_at`
 - `updated_at`
 
-v1 rule:
-- each batch starts with one lot
+Important rules:
 
-Future:
-- supports split/merge evolution cleanly
+- lots are traceable material nodes
+- lots may later support split, merge, blend, transfer, rework, and hold flows
+- every process output should eventually create a new output lot
+- remaining quantity stays available unless consumed
+- lineage must remain traceable back to source GRN/VIR/vendor
 
-Future split/merge rules:
-- child lot quantities must not exceed parent lot quantity
-- split/merge operations require backend transaction and row locking
-- merging lots from different batches/GRNs requires explicit lineage tracking
+Future lineage rules:
+
+- child lot quantities must not exceed available parent quantities
+- split/merge operations require backend transaction safety and row locking
+- merge lineage may involve multiple parent lots
 
 ---
 
 ### `lot_process_steps`
+
 Purpose: runtime-generated process chain for each lot.
 
 Recommended/current columns:
+
 - `id`
 - `lot_id`
 - `workflow_step_id`
@@ -1029,6 +1297,7 @@ Recommended/current columns:
 - `updated_at`
 
 Status examples:
+
 - `pending`
 - `active`
 - `awaiting_qaqc`
@@ -1037,10 +1306,12 @@ Status examples:
 - `rework`
 
 Important note:
+
 - this is the runtime state tracker
 - this is not where deep form data lives
 
 Current working behavior:
+
 - active step can be started
 - active step can be completed
 - if `qaqc_required = false`, next pending step becomes active immediately
@@ -1050,9 +1321,19 @@ Current working behavior:
 ---
 
 ### `process_executions`
+
 Purpose: actual execution record for a process pod.
 
+This is the actual runtime manufacturing ticket/work record.
+
+A process execution:
+
+- consumes inventory lots/material
+- performs manufacturing work
+- produces new output lots
+
 Recommended/current columns:
+
 - `id`
 - `lot_process_step_id`
 - `assigned_to`
@@ -1079,12 +1360,14 @@ Recommended/current columns:
 - `updated_at`
 
 Important note:
+
 - execution belongs directly to one lot process step
 - `process_executions.id` is the execution/log/form record id
 - `lot_process_step_id` points back to `lot_process_steps.id`
 - repeatable operation/cycle rows are stored inside `form_data.operation_logs`
 
 Current status:
+
 - implemented and E2E tested in May 2026
 - create execution works for an active lot process step
 - get execution by id works
@@ -1096,9 +1379,11 @@ Current status:
 ---
 
 ### `qaqc_executions`
+
 Purpose: future QA/QC execution layer linked to a process execution.
 
 Recommended columns:
+
 - `id`
 - `process_execution_id`
 - `status`
@@ -1137,9 +1422,11 @@ Recommended columns:
 - `updated_at`
 
 Important note:
+
 - QA/QC should eventually belong directly to one process execution
 
 Current status:
+
 - current working bridge uses `qaqc_entries` with `process_type` + `process_ref`
 - `process_type = grn` uses `process_ref = grn_number`
 - `process_type = lot_process_step` uses `process_ref = lot_process_steps.id` as a string
@@ -1150,12 +1437,51 @@ Current status:
 ## 7.6 Inventory and sales (later)
 
 ### `inventory_transactions` (later)
-Purpose: transaction-based stock source of truth.
+
+Purpose: transaction-based inventory movement ledger.
+
+Recommended future responsibilities:
+
+- raw material receipt
+- process consumption
+- process output
+- adjustment
+- scrap
+- hold/release
+- shipment
+- manual corrections
+
+Recommended direction:
+
+- one unified inventory transaction ledger
+- all inventory mutations should create ledger entries
+- inventory lots represent current state
+- inventory transactions represent historical truth
+
+### `inventory_lots` (later)
+
+Purpose: current inventory/material buckets.
+
+Recommended future responsibilities:
+
+- represent available inventory quantity
+- represent raw/WIP/finished inventory
+- act as selectable inventory during process creation
+- maintain current quantity visibility for operators
+- preserve source and lineage references
+
+Recommended future behavior:
+
+- process executions consume inventory lots
+- process executions produce new output lots
+- output lots return to inventory
 
 ### `inventory_allocations` (later)
+
 Purpose: reserved stock against sales commitments.
 
 ### `sales_orders` or evolved `sales_po` (later)
+
 Purpose: customer demand and fulfilment.
 
 ---
@@ -1163,9 +1489,11 @@ Purpose: customer demand and fulfilment.
 ## 7.7 Future lineage and analytics tables
 
 ### `lot_lineage` (later)
+
 Purpose: track split and merge ancestry between lots.
 
 Recommended columns:
+
 - `id`
 - `parent_lot_id`
 - `child_lot_id`
@@ -1175,11 +1503,13 @@ Recommended columns:
 - `created_at`
 
 Important rules:
+
 - required for accurate split/merge tracking
 - required when merging lots from different batches or GRNs
 - avoids relying on a single `parent_lot_id`, which cannot represent many-parent merge cases
 
 Analytics enabled by lineage:
+
 - trace finished output back to source GRNs
 - calculate contribution percentage from each source lot
 - track vendor-wise yield and quality issues
@@ -1198,37 +1528,45 @@ GRN
   ↓
 GRN QA/QC approval
   ↓
-Batch
+Raw Inventory Lots
   ↓
-Initial Lot
+Create Batch
   ↓
-Lot Process Steps
+Create Process Execution
   ↓
-Process Execution details
+Select eligible inventory lots/material
   ↓
-Step QA/QC when required
+Consume inventory quantities
   ↓
-Finished Output
+Run manufacturing process
+  ↓
+Create output lots
+  ↓
+Output lots return to WIP inventory
+  ↓
+Future processes consume eligible WIP inventory
+  ↓
+Finished Goods Inventory
 ```
 
-Example for Ashwagandha Extract:
+Example:
 
 ```text
-Product Workflow:
-1 → Extraction
-2 → Stripping
-3 → Purification
-4 → Decolorisation
+Raw Inventory:
+- Turmeric Lot A → 500kg
+- Turmeric Lot B → 400kg
 
-Batch B001
-  ↓
-Lot L1
-  ↓
-Lot Process Steps:
-- Extraction
-- Stripping
-- Purification
-- Decolorisation
+Create Extraction:
+Consumes:
+- 250kg from Lot A
+- 150kg from Lot B
+
+Extraction Output:
+- WIP Lot X → 360kg
+
+Create Filtration:
+Consumes:
+- 200kg from WIP Lot X
 ```
 
 ---
@@ -1236,7 +1574,9 @@ Lot Process Steps:
 ## 9. Implementation order
 
 ## Phase 1 — Master + workflow backbone
+
 Create or clean:
+
 - `products`
 - `process_definitions`
 - `customers`
@@ -1244,23 +1584,29 @@ Create or clean:
 - `product_workflow_steps`
 
 Current status:
+
 - v2 product APIs are implemented
 - v2 workflow APIs are implemented
 - v2 customer APIs are implemented
 
 ## Phase 2 — Inward flow cleanup
+
 Create or clean:
+
 - `vir`
 - `grns`
 - `qaqc_entries` bridge for GRN QA/QC
 
 Current status:
+
 - VIR create/verify/get works
 - GRN create/list works
 - GRN QA/QC create/verify works
 
 ## Phase 3 — Manufacturing runtime
+
 Create:
+
 - `batches`
 - `batch_lots`
 - `lot_process_steps`
@@ -1268,6 +1614,7 @@ Create:
 - `qaqc_executions`
 
 Current Phase 3 status:
+
 - `batches`, `batch_lots`, `lot_process_steps`, and `process_executions` are implemented and tested in happy path
 - batch creation works from QA/QC-approved GRN
 - lot process step progression works
@@ -1278,7 +1625,9 @@ Current Phase 3 status:
 - known limitation: final batch/lot closure after all runtime steps complete is not yet updating `batches.status` / `batch_lots.status`
 
 ## Phase 4 — Later
+
 Create:
+
 - `lot_lineage`
 - `inventory_transactions`
 - `inventory_allocations`
@@ -1291,21 +1640,25 @@ Create:
 Milestone 1 should focus on:
 
 ### 10.1 Foundation / master layer
+
 - confirm role model (`admin`, `manager`, `user`)
 - keep `users` and login flow
 - keep `vendors`
 - evolve `products` into the product/material master
 
 ### 10.2 Process Master
+
 - use `process_definitions`
 - seed or clean manufacturing processes there
 
 ### 10.3 Workflow Definition Layer
+
 - create/use `product_workflows`
 - create/use `product_workflow_steps`
 - add APIs and admin UI to configure workflow by product/material
 
 ### 10.4 Runtime preparation
+
 - clean `vir` and `grns`
 - prepare for batch creation from GRN
 - support runtime `batches`, `batch_lots`, and `lot_process_steps`
@@ -1315,9 +1668,11 @@ Milestone 1 should focus on:
 ## 11. Explicitly out of scope for Milestone 1
 
 Not part of Milestone 1:
+
 - inventory ledger
 - stock allocation/reservation
-- lot split/merge implementation
+- advanced automated split/merge orchestration
+- advanced lineage visualization trees
 - `lot_lineage` implementation
 - full lineage tree
 - advanced analytics dashboards
@@ -1329,6 +1684,7 @@ Not part of Milestone 1:
 ## 11.1 Next planned implementation steps
 
 Immediate next work:
+
 1. Add duplicate/integrity protections:
    - one VIR → one GRN
    - one GRN → one batch
@@ -1347,6 +1703,7 @@ Immediate next work:
 6. Later add lot split/merge with `lot_lineage`.
 
 Frontend follow-up:
+
 - derive available actions from backend state
 - disable duplicate create buttons while requests are pending
 - show existing GRN/batch/QAQC references when already created
@@ -1369,6 +1726,16 @@ Frontend follow-up:
 - One GRN creates one batch in v1.
 - Batch creation auto-selects the active workflow for the product.
 - Runtime workflow is copied into `lot_process_steps`; it is not derived live from the master workflow after creation.
+- Long-term manufacturing direction is inventory-driven, not auto-linear runtime progression.
+- Process executions consume eligible inventory lots and produce new output lots.
+- Output lots return to inventory and may later be consumed by downstream processes.
+- Workflow defines allowed progression, not automatic movement.
+- Batch = manufacturing umbrella/job.
+- Lot = traceable material node.
+- inventory_lots represent current material state.
+- inventory_transactions represent historical inventory movement.
+- Every process output should eventually create a new output lot.
+- Full lineage should remain traceable back to source GRN/VIR/vendor.
 - Current working runtime engine is:
   VIR → GRN → GRN QA/QC → Batch → Lot → Lot Process Steps → Process Execution → Step QA/QC → next step activation.
 - `process_executions` is implemented and E2E tested as the execution/log/form record for a runtime step.
@@ -1385,16 +1752,19 @@ Frontend follow-up:
 These existing tables/views exist today and helped inform the redesign, but they are not all part of the forward model.
 
 ### Existing support/auth
+
 - `users`
 - `new_user`
 - `vendors`
 - `notification_events`
 
 ### Existing inward
+
 - `vir`
 - `grns`
 
 ### Existing manufacturing/workflow legacy set
+
 - `workflow_instances`
 - `workflow_instance_steps`
 - `workflow_audit_log`
@@ -1412,15 +1782,18 @@ These existing tables/views exist today and helped inform the redesign, but they
 - `qaqc_statuses`
 
 ### Current working QA/QC bridge
+
 - `qaqc_entries` is currently used as the working generic QA/QC table
 - it links to targets through `process_type` + `process_ref`
 - it should eventually be revisited once `process_executions` and `qaqc_executions` are finalized
 
 ### Existing sales
+
 - `sales_po`
 - `sales_po_status_log`
 
 ### Existing product master candidate
+
 - `products`
 
 ---
@@ -1428,6 +1801,7 @@ These existing tables/views exist today and helped inform the redesign, but they
 ## 14. Recommended file usage
 
 This file should be used as:
+
 - planning reference
 - onboarding reference
 - AI context reference

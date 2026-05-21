@@ -14,8 +14,9 @@ export function ProcessBoardPage() {
   const [searchParams] = useSearchParams();
   const queryProcessCode = searchParams.get('processCode') ?? undefined;
   const requestedProcessCode = processCodeParam ?? queryProcessCode;
-  const { processes, activeProcessCode, activeProcess, cards, isUsingMockData } =
+  const { processes, activeProcessCode, activeProcess, cards, isUsingMockData, isLoading, error } =
     useProcessBoard(requestedProcessCode);
+  const firstBatchId = cards.find((card) => card.batchId)?.batchId;
 
   return (
     <section className="space-y-6 pb-6">
@@ -26,6 +27,7 @@ export function ProcessBoardPage() {
               Manufacturing
             </p>
             {isUsingMockData ? <Badge variant="outline">Temporary mock data</Badge> : null}
+            {isLoading ? <Badge variant="secondary">Loading</Badge> : null}
           </div>
           <h1 className="mt-2 text-3xl font-bold text-foreground">Dynamic process board</h1>
           <p className="mt-2 max-w-3xl text-muted-foreground">
@@ -36,11 +38,24 @@ export function ProcessBoardPage() {
           type="button"
           variant="outline"
           size="lg"
-          onClick={() => navigate(manufacturingRoutes.batchHistory('sample-batch'))}
+          disabled={!firstBatchId}
+          onClick={() => {
+            if (firstBatchId) {
+              navigate(manufacturingRoutes.batchHistory(firstBatchId));
+            }
+          }}
         >
           Batch History
         </Button>
       </div>
+
+      {error ? (
+        <Card className="border-destructive/40 bg-card">
+          <CardContent className="p-4 text-sm text-destructive">
+            Real manufacturing API read failed. Showing temporary fallback data. {error}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <ProcessTabs processes={processes} activeProcessCode={activeProcessCode} />
 

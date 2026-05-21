@@ -16,7 +16,10 @@ type ProcessCardProps = {
 };
 
 export function ProcessCard({ processStep, onOpen }: ProcessCardProps) {
-  const quantityLabel = `${processStep.quantity.toLocaleString()} ${processStep.unit}`;
+  const quantityLabel =
+    processStep.quantity > 0
+      ? `${processStep.quantity.toLocaleString()} ${processStep.unit}`
+      : 'Not provided';
 
   return (
     <Card className="flex min-h-80 flex-col border-border bg-card shadow-sm">

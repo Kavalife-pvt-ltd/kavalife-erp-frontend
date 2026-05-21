@@ -1,9 +1,19 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { fetchProcessDefinitions } from '@/api/manufacturing/processDefinitions.api';
+import {
+  fetchActiveLotProcessSteps,
+  fetchProcessStepBoard,
+} from '@/api/manufacturing/lotProcessSteps.api';
 import type {
   LotProcessStepCard,
   ProcessDefinition,
 } from '@/features/manufacturing/types/process.types';
+import {
+  mapActiveStepToCard,
+  mapBoardCardToCard,
+  mapProcessDefinition,
+} from '@/features/manufacturing/utils/processAdapters';
 
 const temporaryProcessDefinitions: ProcessDefinition[] = [
   {
@@ -89,36 +99,100 @@ const temporaryProcessCards: LotProcessStepCard[] = [
     lastUpdatedBy: 'QA Reviewer',
     lastUpdatedAt: '2026-05-15 13:45',
   },
-  {
-    stepId: 'step-pur-001',
-    processDefinitionId: 'process-purification',
-    processName: 'Purification',
-    processCode: 'PURIFICATION',
-    batchNumber: 'BATCH-2026-003',
-    lotNumber: 'LOT-C1',
-    productName: 'Purified Kava Extract',
-    quantity: 72,
-    unit: 'kg',
-    status: 'blocked',
-    currentStage: 'Supervisor review needed',
-    lastUpdatedBy: 'Line Lead',
-    lastUpdatedAt: '2026-05-15 09:30',
-  },
 ];
 
-export function useProcessBoard(processCode?: string) {
-  return useMemo(() => {
-    const activeProcessCode = processCode ?? temporaryProcessDefinitions[0].processCode;
-    const cards = temporaryProcessCards.filter((card) => card.processCode === activeProcessCode);
+type ProcessBoardState = {
+  processes: ProcessDefinition[];
+  cards: LotProcessStepCard[];
+  isLoading: boolean;
+  error?: string;
+  isUsingMockData: boolean;
+};
 
-    return {
-      processes: temporaryProcessDefinitions,
-      activeProcessCode,
-      activeProcess: temporaryProcessDefinitions.find(
-        (process) => process.processCode === activeProcessCode
-      ),
-      cards,
-      isUsingMockData: true,
+export function useProcessBoard(processCode?: string) {
+  const [state, setState] = useState<ProcessBoardState>({
+    processes: temporaryProcessDefinitions,
+    cards: temporaryProcessCards,
+    isLoading: true,
+    isUsingMockData: true,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProcessBoard() {
+      setState((currentState) => ({ ...currentState, isLoading: true, error: undefined }));
+
+      try {
+        const definitionDtos = await fetchProcessDefinitions();
+        let cards: LotProcessStepCard[];
+
+        try {
+          const boardCards = await fetchProcessStepBoard({
+            processCode,
+            limit: 100,
+            sortBy: 'lastUpdatedAt',
+            sortOrder: 'desc',
+          });
+          cards = boardCards.map(mapBoardCardToCard);
+        } catch {
+          const activeSteps = await fetchActiveLotProcessSteps();
+          cards = activeSteps.map(mapActiveStepToCard);
+        }
+
+        if (!isMounted) {
+          return;
+        }
+
+        const processes = definitionDtos
+          .filter((definition) => definition.isManufacturingProcess && definition.isActive)
+          .map((definition, index) => mapProcessDefinition(definition, index + 1));
+
+        setState({
+          processes: processes.length > 0 ? processes : temporaryProcessDefinitions,
+          cards,
+          isLoading: false,
+          isUsingMockData: processes.length === 0,
+        });
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setState({
+          processes: temporaryProcessDefinitions,
+          cards: temporaryProcessCards,
+          isLoading: false,
+          error: error instanceof Error ? error.message : 'Failed to load manufacturing board',
+          isUsingMockData: true,
+        });
+      }
+    }
+
+    void loadProcessBoard();
+
+    return () => {
+      isMounted = false;
     };
   }, [processCode]);
+
+  return useMemo(() => {
+    const activeProcessCode = processCode ?? state.processes[0]?.processCode ?? '';
+    const normalizedActiveProcessCode = activeProcessCode.toLowerCase();
+    const cards = processCode
+      ? state.cards.filter((card) => card.processCode.toLowerCase() === normalizedActiveProcessCode)
+      : state.cards;
+
+    return {
+      processes: state.processes,
+      activeProcessCode,
+      activeProcess: state.processes.find(
+        (process) => process.processCode.toLowerCase() === normalizedActiveProcessCode
+      ),
+      cards,
+      isLoading: state.isLoading,
+      error: state.error,
+      isUsingMockData: state.isUsingMockData,
+    };
+  }, [processCode, state]);
 }

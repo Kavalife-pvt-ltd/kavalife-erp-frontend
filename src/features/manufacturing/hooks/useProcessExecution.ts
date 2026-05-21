@@ -1,5 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { fetchLotProcessStepById } from '@/api/manufacturing/lotProcessSteps.api';
+import { fetchProcessDefinitionById } from '@/api/manufacturing/processDefinitions.api';
+import { fetchProcessExecutionsByStepId } from '@/api/manufacturing/processExecutions.api';
 import type {
   ProcessFieldValue,
   ProcessFormSchema,
@@ -9,6 +12,13 @@ import type {
   ProcessActivityItem,
   ProcessExecution,
 } from '@/features/manufacturing/types/process.types';
+import {
+  mapExecutionActivity,
+  mapExecutionValues,
+  mapProcessDefinitionSchema,
+  mapProcessExecution,
+  mapStepDetailToCard,
+} from '@/features/manufacturing/utils/processAdapters';
 
 const temporaryWorkspaceStep: LotProcessStepCard = {
   stepId: 'step-ext-001',
@@ -70,72 +80,11 @@ const temporarySchema: ProcessFormSchema = {
           required: true,
         },
         {
-          id: 'field-temperature',
-          name: 'targetTemperature',
-          label: 'Target temperature',
-          type: 'number',
-          placeholder: 'Temperature',
-        },
-        {
-          id: 'field-solvent',
-          name: 'solventType',
-          label: 'Solvent type',
-          type: 'select',
-          placeholder: 'Select solvent',
-          options: [
-            { label: 'Water', value: 'water' },
-            { label: 'Ethanol', value: 'ethanol' },
-            { label: 'Other', value: 'other' },
-          ],
-        },
-        {
           id: 'field-notes',
           name: 'operatorNotes',
           label: 'Operator notes',
           type: 'textarea',
           placeholder: 'Add concise process notes',
-        },
-        {
-          id: 'field-stage-check',
-          name: 'stageCheckComplete',
-          label: 'Stage check complete',
-          type: 'checkbox',
-          placeholder: 'Required checks are complete',
-        },
-      ],
-    },
-    {
-      id: 'section-wash-log',
-      title: 'Repeatable process log',
-      description: 'Use this for wash logs, heating logs, recovery logs, or similar runtime rows.',
-      fields: [
-        {
-          id: 'field-wash-log',
-          name: 'washLog',
-          label: 'Wash log',
-          type: 'repeatable_table',
-          columns: [
-            {
-              id: 'wash-time',
-              name: 'time',
-              label: 'Time',
-              type: 'time',
-            },
-            {
-              id: 'wash-temp',
-              name: 'temperature',
-              label: 'Temp',
-              type: 'number',
-              placeholder: 'C',
-            },
-            {
-              id: 'wash-notes',
-              name: 'notes',
-              label: 'Notes',
-              type: 'text',
-              placeholder: 'Observation',
-            },
-          ],
         },
       ],
     },
@@ -146,11 +95,7 @@ const temporaryInitialValues: Record<string, ProcessFieldValue> = {
   operatorName: 'Production Operator',
   lastUpdatedAt: '2026-05-15T14:20',
   vesselId: 'VSL-04',
-  targetTemperature: 68,
-  solventType: 'ethanol',
   operatorNotes: '',
-  stageCheckComplete: false,
-  washLog: [{ time: '14:00', temperature: 66, notes: 'Initial heating check' }],
 };
 
 const temporaryActivity: ProcessActivityItem[] = [
@@ -161,34 +106,93 @@ const temporaryActivity: ProcessActivityItem[] = [
     occurredAt: '2026-05-15 10:05',
     description: 'Activated after GRN QA/QC completion.',
   },
-  {
-    id: 'activity-002',
-    label: 'Progress saved',
-    actor: 'Production Operator',
-    occurredAt: '2026-05-15 14:20',
-    description: 'Heating stage values updated.',
-  },
 ];
 
-export function useProcessExecution(stepId?: string) {
-  return useMemo(() => {
-    const execution: ProcessExecution = {
-      executionId: `execution-${stepId ?? temporaryWorkspaceStep.stepId}`,
-      stepId: stepId ?? temporaryWorkspaceStep.stepId,
-      processCode: temporaryWorkspaceStep.processCode,
-      status: temporaryWorkspaceStep.status,
-      currentStage: temporaryWorkspaceStep.currentStage,
-      startedAt: '2026-05-15 10:05',
-      values: temporaryInitialValues,
-    };
+type ProcessExecutionState = {
+  processStep: LotProcessStepCard;
+  execution?: ProcessExecution;
+  schema: ProcessFormSchema;
+  initialValues: Record<string, ProcessFieldValue>;
+  activity: ProcessActivityItem[];
+  isLoading: boolean;
+  error?: string;
+  isUsingMockSchema: boolean;
+};
 
-    return {
-      processStep: { ...temporaryWorkspaceStep, stepId: stepId ?? temporaryWorkspaceStep.stepId },
-      execution,
-      schema: temporarySchema,
-      initialValues: temporaryInitialValues,
-      activity: temporaryActivity,
-      isUsingMockSchema: true,
+export function useProcessExecution(stepId?: string) {
+  const [state, setState] = useState<ProcessExecutionState>({
+    processStep: temporaryWorkspaceStep,
+    schema: temporarySchema,
+    initialValues: temporaryInitialValues,
+    activity: temporaryActivity,
+    isLoading: Boolean(stepId),
+    isUsingMockSchema: true,
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (!stepId) {
+      return;
+    }
+
+    const requestedStepId = stepId;
+    let isMounted = true;
+
+    async function loadProcessExecution() {
+      setState((currentState) => ({ ...currentState, isLoading: true, error: undefined }));
+
+      try {
+        const step = await fetchLotProcessStepById(requestedStepId);
+        const [definition, executions] = await Promise.all([
+          fetchProcessDefinitionById(String(step.process_definition_id)),
+          fetchProcessExecutionsByStepId(requestedStepId).catch(() => []),
+        ]);
+        const latestExecution = executions[0];
+
+        if (!isMounted) {
+          return;
+        }
+
+        setState({
+          processStep: mapStepDetailToCard(step, definition, latestExecution),
+          execution: latestExecution
+            ? mapProcessExecution(latestExecution, step.process_code)
+            : undefined,
+          schema: mapProcessDefinitionSchema(definition, temporarySchema),
+          initialValues: latestExecution ? mapExecutionValues(latestExecution) : {},
+          activity: mapExecutionActivity(step, executions),
+          isLoading: false,
+          isUsingMockSchema: !definition.defaultFormSchema,
+        });
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setState({
+          processStep: { ...temporaryWorkspaceStep, stepId: requestedStepId },
+          schema: temporarySchema,
+          initialValues: temporaryInitialValues,
+          activity: temporaryActivity,
+          isLoading: false,
+          error: error instanceof Error ? error.message : 'Failed to load process execution',
+          isUsingMockSchema: true,
+        });
+      }
+    }
+
+    void loadProcessExecution();
+
+    return () => {
+      isMounted = false;
     };
-  }, [stepId]);
+  }, [refreshKey, stepId]);
+
+  return useMemo(
+    () => ({
+      ...state,
+      refresh: () => setRefreshKey((currentKey) => currentKey + 1),
+    }),
+    [state]
+  );
 }

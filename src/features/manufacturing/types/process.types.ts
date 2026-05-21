@@ -20,7 +20,9 @@ export type LotProcessStepCard = {
   processDefinitionId: string;
   processName: string;
   processCode: string;
+  batchId?: string;
   batchNumber: string;
+  lotId?: string;
   lotNumber: string;
   productName: string;
   quantity: number;
@@ -29,6 +31,9 @@ export type LotProcessStepCard = {
   currentStage: string;
   lastUpdatedBy: string;
   lastUpdatedAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  qaqcRequired?: boolean;
 };
 
 export type ProcessExecution = {

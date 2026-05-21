@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { DynamicSection } from '@/features/manufacturing/dynamic-form/DynamicSection';
 import type {
@@ -18,6 +18,10 @@ export function DynamicProcessForm({
   onChange,
 }: DynamicProcessFormProps) {
   const [values, setValues] = useState<Record<string, ProcessFieldValue>>(initialValues);
+
+  useEffect(() => {
+    setValues(initialValues);
+  }, [initialValues]);
 
   const updateField = (fieldName: string, value: ProcessFieldValue) => {
     setValues((currentValues) => {
