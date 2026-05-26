@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { fetchProcessDefinitions } from '@/api/manufacturing/processDefinitions.api';
 import {
@@ -109,13 +109,17 @@ type ProcessBoardState = {
   isUsingMockData: boolean;
 };
 
-export function useProcessBoard(processCode?: string) {
+export function useProcessBoard(filters: { processCode?: string; status?: string; search?: string } = {}) {
   const [state, setState] = useState<ProcessBoardState>({
     processes: temporaryProcessDefinitions,
     cards: temporaryProcessCards,
     isLoading: true,
     isUsingMockData: true,
   });
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refresh = useCallback(() => {
+    setRefreshKey((key) => key + 1);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -129,7 +133,9 @@ export function useProcessBoard(processCode?: string) {
 
         try {
           const boardCards = await fetchProcessStepBoard({
-            processCode,
+            processCode: filters.processCode,
+            status: filters.status === 'ready' ? 'active' : filters.status,
+            search: filters.search,
             limit: 100,
             sortBy: 'lastUpdatedAt',
             sortOrder: 'desc',
@@ -174,14 +180,31 @@ export function useProcessBoard(processCode?: string) {
     return () => {
       isMounted = false;
     };
-  }, [processCode]);
+  }, [filters.processCode, filters.status, filters.search, refreshKey]);
 
   return useMemo(() => {
-    const activeProcessCode = processCode ?? state.processes[0]?.processCode ?? '';
+    const activeProcessCode = filters.processCode ?? state.processes[0]?.processCode ?? '';
     const normalizedActiveProcessCode = activeProcessCode.toLowerCase();
-    const cards = processCode
-      ? state.cards.filter((card) => card.processCode.toLowerCase() === normalizedActiveProcessCode)
-      : state.cards;
+    
+    // Client-side filtering as fallback if API doesn't filter perfectly
+    let cards = state.cards;
+    
+    if (filters.processCode) {
+      cards = cards.filter((card) => card.processCode.toLowerCase() === normalizedActiveProcessCode);
+    }
+    
+    if (filters.status) {
+      cards = cards.filter((card) => card.status === filters.status);
+    }
+    
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      cards = cards.filter((card) => 
+        card.batchNumber.toLowerCase().includes(searchLower) ||
+        card.lotNumber.toLowerCase().includes(searchLower) ||
+        card.processName.toLowerCase().includes(searchLower)
+      );
+    }
 
     return {
       processes: state.processes,
@@ -193,6 +216,7 @@ export function useProcessBoard(processCode?: string) {
       isLoading: state.isLoading,
       error: state.error,
       isUsingMockData: state.isUsingMockData,
+      refresh,
     };
-  }, [processCode, state]);
+  }, [filters.processCode, filters.status, filters.search, state, refresh]);
 }

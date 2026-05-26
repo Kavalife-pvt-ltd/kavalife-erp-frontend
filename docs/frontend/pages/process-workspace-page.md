@@ -1,311 +1,292 @@
-# Process Workspace Page
+# Process Workspace Page Contract
 
-> Status: Active page contract  
+> Status: Active frontend implementation contract  
 > Route: `/manufacturing/workspace/:stepId`  
-> Scope: Manufacturing runtime process execution workspace
+> Scope: Existing process execution workspace/form  
+> Audience: Developers and AI coding agents
 
 ---
 
 ## 1. Purpose
 
-The Process Workspace Page is the main working screen for a manufacturing floor operator.
+The Process Workspace Page is the operator form screen for an already-created manufacturing process execution.
 
-It opens one runtime `lot_process_step` and lets the operator:
+It is used after the operator has already started a process from the process page/create popup.
 
-- view process/batch/lot context
-- view or create the related `process_execution`
-- fill dynamic process form data
-- add repeatable operation logs
-- save progress
-- complete the process execution
-- view activity/history where available
+Correct flow:
 
-This page is used for processes like:
+```text
+Process Page
+  ↓
+Create New Process
+  ↓
+Select inventory + quantity
+  ↓
+POST /v2/process-executions
+  ↓
+Open workspace/form
+```
 
-- Extraction
-- Stripping
-- Purification
-- Decolorisation
-- Packaging
-
-This page is not used for VIR/GRN creation.
+Workspace must not auto-create process executions.
 
 ---
 
-## 2. Related docs
-
-Read these before modifying this page:
+## 2. Core mental model
 
 ```text
-docs/frontend/00-frontend-overview.md
-docs/frontend/01-manufacturing-runtime-ui-contract.md
-docs/frontend/contracts/button-behavior-contract.md
-docs/frontend/contracts/form-data-contract.md
-docs/frontend/components/process-workspace-header.md
-docs/frontend/components/process-action-bar.md
-docs/frontend/components/dynamic-process-form.md
-docs/frontend/components/repeatable-table.md
+lot_process_step
+  = workflow eligibility slot
+  = route context / process stage context
+
+process_execution
+  = actual operator job/form/run
+  = must already exist before normal workspace use
+
+inventory_lot
+  = material truth
+  = already consumed when execution was created
 ```
 
-Backend reference:
+Important:
 
 ```text
-kavalife-erp-glossary-and-schema-v1.md
-docs/testing/01-e2e-happy-path-testing.md
+active lot_process_step ≠ execution already exists
 ```
+
+If no execution exists, show guidance and send user back to the process page.
 
 ---
 
 ## 3. Route
 
+Current route:
+
 ```text
 /manufacturing/workspace/:stepId
-```
-
-Example:
-
-```text
-/manufacturing/workspace/41
 ```
 
 Meaning:
 
 ```text
-Open lot_process_steps.id = 41
+stepId = lot_process_steps.id
 ```
 
-The route param is:
-
-```ts
-stepId: string;
-```
-
-It should be parsed/used to fetch the runtime process step.
+Do not change this to `executionId` unless backend/frontend routing is intentionally refactored.
 
 ---
 
-## 4. Business model
+## 4. Related docs
 
-This page works with two core backend concepts:
-
-```text
-lot_process_steps
-  = workflow/runtime state tracker
-
-process_executions
-  = actual form/log/execution record
-```
-
-The page should never manually move workflow state.
-
-It should only:
-
-- read step state
-- read/create process execution
-- update process execution progress
-- complete process execution
-
-Backend decides:
-
-- whether the step moves to `awaiting_qaqc`
-- whether the step becomes `completed`
-- whether next step becomes `active`
-- whether batch/lot should close
-
----
-
-## 5. High-level page layout
-
-Recommended layout:
+Read before modifying this page:
 
 ```text
-ProcessWorkspacePage
-  ├── Top Navigation / Back Area
-  ├── ProcessWorkspaceHeader
-  ├── Status / Context Banner
-  ├── DynamicProcessForm
-  │     ├── DynamicSection
-  │     ├── DynamicField
-  │     └── RepeatableTable
-  ├── ProcessActivityTimeline
-  └── ProcessActionBar
-```
-
-Visual direction:
-
-```text
-tablet-friendly
-large touch targets
-clear section grouping
-sticky action area
-minimal clutter
-high contrast
-responsive
+docs/frontend/process-runtime-flow.md
+docs/frontend/01-manufacturing-runtime-ui-contract.md
+docs/frontend/pages/process-board-page.md
+docs/frontend/contracts/runtime-api-contract.md
+docs/frontend/contracts/form-data-contract.md
+docs/frontend/contracts/button-behavior-contract.md
+docs/frontend/hooks/use-process-execution.md
 ```
 
 ---
 
-## 6. Workspace load lifecycle
+## 5. Page responsibilities
 
-When the page opens:
+Workspace should:
+
+- load step context
+- load existing execution for the step
+- load process definition/form schema
+- show process execution summary
+- show consumed inputs
+- render dynamic process form
+- save progress
+- complete process
+- show produced outputs
+- show QA/QC/read-only state
+
+Workspace should not:
+
+- create process execution automatically
+- show inventory selection as the primary creation flow
+- consume inventory
+- manually advance workflow state
+- manually release QA/QC-gated output
+- optimistically complete process
+
+---
+
+## 6. Load lifecycle
+
+On page load:
 
 ```text
 1. Read stepId from route
 2. Fetch lot process step details
 3. Fetch existing process execution by stepId
 4. Fetch process definition/schema
-5. If execution does not exist, create it once
-6. Store execution id in state
+5. Fetch execution inputs
+6. Fetch execution outputs
 7. Initialize form state from execution.formData
 8. Render workspace
 ```
 
-Recommended API calls:
+Expected APIs:
 
 ```http
 GET /v2/process-steps/:stepId
 GET /v2/process-executions/step/:stepId
 GET /v2/process-definitions/:processDefinitionId
+GET /v2/process-executions/:id/inputs
+GET /v2/process-executions/:id/outputs
 ```
 
-If execution does not exist:
+If no execution exists:
 
-```http
-POST /v2/process-executions
+```text
+No process job has been started for this step.
+Please start it from the process page.
 ```
 
-Example create body:
-
-```json
-{
-  "lotProcessStepId": 41,
-  "formData": {}
-}
-```
-
-Important rules:
-
-- execution creation should happen once per step
-- do not create a new execution on every Save Progress click
-- once execution exists, Save Progress should PATCH only
-- Complete Process should require an existing execution id
+Do not call `POST /v2/process-executions` from workspace load.
 
 ---
 
-## 7. Data required by page
+## 7. Required display data
 
-The workspace should have access to:
-
-## 7.1 Step details
+## 7.1 Step context
 
 - stepId
-- status
-- processDefinitionId
 - processCode
 - processName
+- processDefinitionId
 - stepOrder
+- status
 - qaqcRequired
-- startedAt
-- completedAt
-- updatedAt
 
-## 7.2 Batch/lot/product context
+## 7.2 Batch/material context
 
 - batchId
 - batchNumber
-- lotId
-- lotNumber
 - productId
 - productName
-- quantity
-- unit
+- lot/process step reference if useful
 
-## 7.3 Execution details
+## 7.3 Execution context
 
 - executionId
+- status
 - quantityIn
 - quantityOut
 - quantityLoss
-- lossReason
 - yieldPercent
+- formData
 - equipmentUsed
 - operatorNotes
 - supervisorNotes
-- formData
-- formDataVersion
 - startedAt
 - completedAt
-- completedBy
-- verifiedBy
-- verifiedAt
-- createdAt
-- updatedAt
 
-## 7.4 Process schema
+## 7.4 Inputs/outputs
 
-From process definition:
+Consumed inputs:
 
-- defaultFormSchema
-- sections
-- fields
-- field types
-- repeatable tables
-- validation rules where available
+```text
+GET /v2/process-executions/:id/inputs
+```
+
+Produced outputs:
+
+```text
+GET /v2/process-executions/:id/outputs
+```
 
 ---
 
-## 8. Header behavior
+## 8. Layout
 
-Component:
+Recommended layout:
 
 ```text
-ProcessWorkspaceHeader
+ProcessWorkspacePage
+  ├── Back / Navigation area
+  ├── Header summary
+  ├── Status banner
+  ├── Consumed inputs section
+  ├── Dynamic process form
+  ├── Produced outputs section
+  └── Sticky action bar
 ```
 
-Should display:
+Priority:
+
+```text
+tablet-friendly
+large buttons
+low clutter
+clear status
+simple operator flow
+```
+
+---
+
+## 9. Header
+
+Header should display:
 
 - process name/code
-- status badge
+- execution status
 - batch number
-- lot number
-- product name
-- current quantity/unit
+- product/material name
+- quantity in
+- quantity out if completed
 - QA/QC required indicator
-- last updated by/date if available
+- started/completed time if available
 
-Header must not contain editable form fields.
-
-Backend-owned metadata should be display-only.
+Header fields are display-only.
 
 ---
 
-## 9. Status/context banner
+## 10. Status banner
 
-The page may show a banner under the header for important states.
-
-Examples:
+Show a clear banner for important states:
 
 ```text
-This process is awaiting QA/QC. Editing is locked.
+Awaiting QA/QC approval
+Completed - read only
+Rework required
+No process job started
+Unsaved changes
 ```
 
-```text
-This process has been completed. Form is read-only.
-```
-
-```text
-This process is in rework. Check supervisor instructions.
-```
-
-```text
-Unsaved changes present.
-```
-
-Banner should be visually clear but not noisy.
+For `awaiting_qaqc`, the form should be read-only.
 
 ---
 
-## 10. Dynamic form behavior
+## 11. Consumed inputs section
+
+Show consumed material from:
+
+```http
+GET /v2/process-executions/:id/inputs
+```
+
+Display:
+
+- lot number
+- product/material
+- quantity consumed
+- unit
+- source GRN/source execution if available
+
+This section is read-only.
+
+Inventory was already consumed during process execution creation.
+
+---
+
+## 12. Dynamic process form
 
 Component:
 
@@ -313,116 +294,68 @@ Component:
 DynamicProcessForm
 ```
 
-It should:
+Responsibilities:
 
-- render schema sections
-- initialize from `process_execution.formData`
+- render process definition schema
+- initialize from `execution.formData`
 - keep edits in local state
 - support repeatable tables
-- emit form state changes upward
 - support read-only mode
-- not call APIs directly
+- emit form state changes upward
 
-API calls should be owned by page/hook/action handlers, not individual field components.
+Dynamic form components must not call APIs directly.
 
 ---
 
-## 11. Repeatable logs behavior
+## 13. formData rules
 
-Component:
+`formData` contains process-specific operational data only.
 
-```text
-RepeatableTable
+Examples:
+
+```json
+{
+  "material_details": {},
+  "operation_logs": [],
+  "solvent_recovery": {}
+}
 ```
 
-Used for things like:
+Do not put these in `formData`:
 
-- wash logs
-- heating cycles
-- stripping operation rows
-- purification wash rows
-- solvent recovery rows, if repeatable
+- quantityIn
+- quantityOut
+- quantityLoss
+- yieldPercent
+- createdAt
+- updatedAt
+- completedAt
+- createdBy
+- checkedBy
+- verifiedBy
+- operatorNotes
+- supervisorNotes
 
-Rules:
+Those are top-level execution/backend-owned fields.
+
+---
+
+## 14. Repeatable rows
+
+Repeatable table behavior:
 
 ```text
 Add Row → local state only
 Delete Row → local state only
-Save Progress → persists full formData
-Complete Process → persists final formData
+Save Progress → PATCH full formData
+Complete Process → PATCH final formData + output data
 ```
 
-Repeatable rows should not call backend immediately.
+Rows should not call backend individually.
 
 ---
 
-## 12. Action bar behavior
-
-Component:
-
-```text
-ProcessActionBar
-```
-
-Recommended placement:
-
-```text
-sticky bottom on tablet/mobile
-normal footer or sticky footer on desktop
-```
-
-Main actions:
-
-- Back
-- Save Progress
-- Complete Process
-
-Optional/future actions:
-
-- Refresh
-- Complete Stage, only if internal stage support exists
-
-Buttons must follow:
-
-```text
-docs/frontend/contracts/button-behavior-contract.md
-```
-
----
-
-## 13. Back behavior
-
-Button:
-
-```text
-Back
-```
-
-Behavior:
-
-```text
-if form is dirty:
-  show unsaved changes dialog
-else:
-  navigate back
-```
-
-API:
-
-```text
-none
-```
-
-Back must not:
-
-- auto-save silently
-- complete process
-- create execution
-- move workflow
-
----
-
-## 14. Save Progress behavior
+## 15. Save Progress
 
 Button:
 
@@ -436,55 +369,42 @@ API:
 PATCH /v2/process-executions/:id/progress
 ```
 
-Save Progress persists:
+Purpose:
 
-- current `formData`
-- quantityIn if editable/available
-- equipmentUsed if editable/available
-- operatorNotes if editable/available
+```text
+Save dynamic form data and notes only.
+```
 
-Example body:
+Allowed payload:
 
 ```json
 {
-  "quantityIn": 250.5,
-  "equipmentUsed": "EXT-01",
-  "operatorNotes": "Shift note here",
   "formData": {
-    "operation_logs": [
-      {
-        "wash_no": 1,
-        "solvent_qty": 25
-      }
-    ]
-  }
+    "operation_logs": []
+  },
+  "equipmentUsed": {
+    "equipment_code": "EXT-01"
+  },
+  "operatorNotes": "First wash completed"
 }
 ```
 
 Save Progress must not:
 
+- consume inventory
+- create output inventory
 - complete process
-- activate next step
-- move workflow state
-- create duplicate execution
-- put backend-owned metadata inside formData
+- advance workflow
 
 On success:
 
-- update local execution state
-- mark form as clean
+- update execution state
+- mark form clean
 - show success feedback
-- optionally refresh board/workspace data
-
-On error:
-
-- keep local unsaved state
-- show error feedback
-- allow retry
 
 ---
 
-## 15. Complete Process behavior
+## 16. Complete Process
 
 Button:
 
@@ -498,308 +418,246 @@ API:
 PATCH /v2/process-executions/:id/complete
 ```
 
-Complete Process should show confirmation before API call.
+Complete Process requires confirmation.
 
-Example body:
+Payload includes:
+
+- latest formData
+- quantityOut
+- quantityLoss
+- lossReason if applicable
+- output inventory details
+- notes/equipment if applicable
+
+Frontend may preview:
+
+```text
+quantityLoss = quantityIn - quantityOut
+yieldPercent = quantityOut / quantityIn * 100
+```
+
+Backend owns final persisted values.
+
+Example:
 
 ```json
 {
-  "quantityOut": 230,
-  "quantityLoss": 20.5,
+  "quantityOut": 240,
+  "quantityLoss": 10,
   "lossReason": "Normal process loss",
-  "equipmentUsed": "EXT-01",
-  "operatorNotes": "Completed by night shift",
-  "supervisorNotes": "Reviewed output",
   "formData": {
-    "operation_logs": [
-      {
-        "wash_no": 1,
-        "solvent_qty": 25
-      }
-    ]
-  }
+    "operation_logs": []
+  },
+  "equipmentUsed": {
+    "equipment_code": "EXT-01"
+  },
+  "operatorNotes": "Extraction completed",
+  "outputs": [
+    {
+      "productId": 1,
+      "quantity": 240,
+      "unitOfMeasure": "kg",
+      "inventoryType": "wip",
+      "currentLocation": "WIP Storage"
+    }
+  ]
 }
 ```
 
-Backend decides after completion:
+Backend side effects:
 
-```text
-if QA/QC required:
-  step → awaiting_qaqc
-else:
-  step → completed
-  next pending step → active
-```
+- completes process execution
+- creates output inventory lot
+- creates produce transaction
+- creates process_execution_outputs row
+- creates lot_lineage
+- moves step to awaiting_qaqc or completed
 
-Frontend must not manually activate next step.
-
-On success:
-
-- show success feedback
-- refresh step/execution data
-- redirect to process board if desired
-- or show read-only completed state
-
-On error:
-
-- keep form data
-- show error feedback
-- allow retry
+Frontend must not manually move workflow forward.
 
 ---
 
-## 16. Dirty state behavior
+## 17. Produced outputs section
 
-Page must track whether local form state differs from last saved execution data.
+Show outputs from:
 
-Dirty state should become true when:
+```http
+GET /v2/process-executions/:id/outputs
+```
 
-- any field changes
-- repeatable row added
-- repeatable row deleted
-- notes/top-level editable fields change
+Display:
 
-Dirty state should become false when:
+- output lot number
+- product/material
+- quantity produced
+- unit
+- inventory type
+- status
+
+Important statuses:
+
+```text
+under_qaqc → Awaiting QA/QC
+available → Available for next process
+```
+
+This section is read-only.
+
+---
+
+## 18. Read-only states
+
+Workspace should be read-only when:
+
+- execution status is completed
+- step status is awaiting_qaqc
+- step status is completed
+- output is under_qaqc
+- user lacks permission
+
+Read-only means:
+
+- form fields disabled
+- add/delete row disabled
+- Save Progress disabled
+- Complete Process disabled
+- inputs/outputs/summary remain visible
+
+---
+
+## 19. Dirty state
+
+Track local unsaved form changes.
+
+Dirty becomes true when:
+
+- field changes
+- repeatable row added/deleted
+- notes/equipment changes
+
+Dirty becomes false when:
 
 - Save Progress succeeds
 - Complete Process succeeds
-- data is reloaded and local state resets
+- form reloads from backend
 
-Dirty state is used by:
-
-- Back button
-- Refresh button
-- route leave warning, where supported
+Back/refresh should warn if dirty.
 
 ---
 
-## 17. Read-only behavior
+## 20. Back behavior
 
-Workspace should become read-only when:
-
-- process execution is completed
-- lot process step is awaiting QA/QC
-- lot process step is completed
-- lot process step is failed, unless rework editing is allowed
-- user lacks permission
-
-In read-only mode:
-
-- form fields disabled/read-only
-- Add Row disabled
-- Delete Row disabled
-- Save Progress disabled
-- Complete Process disabled
-- metadata and timeline remain visible
-
----
-
-## 18. Loading states
-
-## 18.1 Initial loading
-
-Show loading skeleton/state while fetching:
-
-- step details
-- execution
-- process definition/schema
-
-## 18.2 Save loading
-
-While Save Progress is running:
-
-- disable Save Progress
-- optionally disable Complete Process
-- show saving label/spinner
-
-## 18.3 Complete loading
-
-While Complete Process is running:
-
-- disable Complete Process
-- disable Save Progress
-- show completing label/spinner
-
-Avoid duplicate submissions.
-
----
-
-## 19. Error states
-
-## 19.1 Step not found
-
-Show:
+Back button:
 
 ```text
-Process step not found.
+if dirty:
+  show unsaved changes confirmation
+else:
+  navigate back to process page
 ```
 
-Actions:
+Back must not:
 
-- Back to board
-- Retry
-
-## 19.2 Execution create/read failed
-
-Show clear error.
-
-If execution cannot be created/read, disable Save Progress and Complete Process.
-
-## 19.3 Schema failed
-
-If schema fails but execution exists:
-
-- show fallback form only in development if allowed
-- otherwise show clear error
-
-## 19.4 Save failed
-
-Keep local state and allow retry.
-
-## 19.5 Complete failed
-
-Keep local state and allow retry.
+- silently save
+- complete process
+- create execution
+- move workflow
 
 ---
 
-## 20. Activity timeline
+## 21. Loading/error states
 
-Component:
+Initial loading:
 
 ```text
-ProcessActivityTimeline
+loading step + execution + schema
 ```
 
-Should show events such as:
+No execution:
 
-- step created
-- execution created
-- progress saved
-- process completed
-- moved to awaiting QA/QC
-- QA/QC approved/rejected
-- next step activated
+```text
+No process job has been started for this step.
+Please start it from the process page.
+```
 
-Current limitation:
+Save error:
 
-If backend has no dedicated activity endpoint, frontend may synthesize limited timeline from timestamps, but should not pretend it is complete audit history.
+```text
+keep local state and allow retry
+```
 
----
+Complete error:
 
-## 21. Responsive behavior
+```text
+keep local state and allow retry
+```
 
-## 21.1 Desktop
-
-Desktop may use:
-
-- wider layout
-- form and timeline side-by-side if useful
-- sticky header/action footer
-
-## 21.2 Tablet
-
-Tablet is the priority for floor UI.
-
-Use:
-
-- large cards/sections
-- large buttons
-- generous spacing
-- sticky bottom action bar
-- minimal dense tables
-
-## 21.3 Mobile
-
-Mobile should stack sections vertically.
-
-Mobile is mainly for review/manager access, not ideal heavy process entry.
+Show backend error messages where safe.
 
 ---
 
 ## 22. Permissions
 
-Button visibility and editability should depend on:
+UI may hide/disable actions by role/department/status.
 
-- user role
-- user department
-- process status
-- backend permissions where available
+Backend remains security source of truth.
 
-UI hiding is not security.
-
-Backend must enforce permissions.
+Do not rely on frontend hiding as security.
 
 ---
 
-## 23. API summary
-
-Required/expected APIs:
-
-```http
-GET /v2/process-steps/:stepId
-GET /v2/process-executions/step/:stepId
-GET /v2/process-definitions/:processDefinitionId
-POST /v2/process-executions
-PATCH /v2/process-executions/:id/progress
-PATCH /v2/process-executions/:id/complete
-```
-
-Optional/future:
-
-```http
-GET /v2/process-steps/:stepId/activity
-```
-
----
-
-## 24. Anti-patterns
+## 23. Anti-patterns
 
 Do not do these:
 
 ```text
-Save Progress creates a new process_execution every click
+Workspace creates process execution on load
+Workspace shows inventory selection as main creation flow
+Save Progress creates execution
 Complete Process creates execution if missing
-Back silently saves progress
-Add Row calls backend immediately
-Delete Row calls backend immediately
-formData contains startedAt/completedAt/verifiedBy
-formData contains quantityIn/quantityOut/operatorNotes
-Frontend manually activates next process step
-Frontend manually sets lot_process_step completed
-Complete Stage moves workflow state without backend support
+Add/Delete row calls backend immediately
+Frontend manually activates next step
+Frontend manually releases QA/QC inventory
+Frontend mutates inventory optimistically
+formData contains audit metadata/top-level execution fields
 ```
 
 ---
 
-## 25. Implementation checklist
+## 24. AI implementation rules
 
-Before modifying this page, confirm:
+Before editing workspace, read:
 
 ```text
-1. Does workspace load fetch step, execution, and schema?
-2. Does missing execution get created only once?
-3. Does Save Progress PATCH existing execution only?
-4. Does Complete Process require existing execution id?
-5. Does formData exclude metadata/top-level execution fields?
-6. Are Add/Delete Row local-only?
-7. Is dirty state tracked?
-8. Are read-only states enforced?
-9. Are duplicate submissions prevented?
-10. Does backend own workflow progression?
+docs/frontend/process-runtime-flow.md
+docs/frontend/01-manufacturing-runtime-ui-contract.md
+docs/frontend/pages/process-board-page.md
+docs/frontend/contracts/runtime-api-contract.md
+docs/frontend/contracts/form-data-contract.md
+docs/frontend/contracts/button-behavior-contract.md
+docs/frontend/hooks/use-process-execution.md
 ```
+
+Rules:
+
+- keep workspace as existing-execution operator form
+- do not reintroduce auto-start behavior
+- do not move create process flow back into workspace
+- do not duplicate backend manufacturing rules
+- report contract/API mismatches
 
 ---
 
-## 26. Short locked summary
+## 25. Short locked summary
 
 ```text
-- ProcessWorkspacePage opens one lot_process_step.
-- It reads/creates one process_execution for that step.
-- Dynamic form edits are local until saved/completed.
-- Save Progress PATCHes execution progress.
-- Complete Process PATCHes execution complete.
-- Add/Delete row are local state actions.
-- Frontend never manually moves workflow forward.
-- Backend decides QA/QC gating and next step activation.
-- Page must be tablet-friendly, clear, and low-clutter.
+- Workspace is for an existing process_execution.
+- Route still uses stepId for v1.
+- Workspace loads step + execution + schema + inputs + outputs.
+- No execution means show guidance, do not auto-create.
+- Save Progress only updates form/progress data.
+- Complete Process creates output inventory through backend.
+- Dynamic form data stays inside formData.
+- Inputs/outputs are read-only runtime material sections.
+- Backend owns workflow, inventory, QA/QC, lineage, and audit truth.
 ```

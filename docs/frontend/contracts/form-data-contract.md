@@ -1,87 +1,125 @@
 # Frontend Form Data Contract
 
-> Status: Active implementation contract  
-> Scope: Manufacturing runtime form data first  
-> Purpose: Define what belongs inside `process_executions.form_data`, what stays outside it, and how dynamic process forms should read/write data.
+> Status: Active frontend implementation contract  
+> Scope: Manufacturing runtime dynamic process data  
+> Audience: Developers and AI coding agents
 
 ---
 
-## 1. Core rule
+## 1. Purpose
 
-Dynamic manufacturing form data belongs inside:
+This document defines:
+
+- what belongs inside `process_executions.form_data`
+- what must stay outside `formData`
+- how dynamic manufacturing forms should store/process runtime data
+
+`formData` exists for process-specific operational data only.
+
+---
+
+## 2. Runtime mental model
+
+```text
+lot_process_step
+  = workflow eligibility slot
+
+process_execution
+  = actual operator process job/form/run
+
+inventory_lot
+  = material truth
+```
+
+Important:
+
+```text
+lot_process_step = workflow position
+process_execution = actual work performed
+```
+
+`formData` belongs to:
+
+```text
+process_execution
+```
+
+NOT workflow/runtime orchestration.
+
+---
+
+## 3. Core rule
+
+Dynamic manufacturing process data belongs inside:
 
 ```text
 process_executions.form_data
+```
 
-formData stores only process-specific fields and repeatable logs.
+`formData` should contain only:
 
-It must not store:
+- process-specific values
+- operator-entered runtime readings
+- repeatable logs/tables
+- process section data
+- operational notes specific to process sections
 
-* workflow state
-* trusted user/date metadata
-* relation IDs
-* top-level execution fields
+It must not contain:
 
-⸻
+- workflow state
+- backend-owned audit metadata
+- relation identifiers
+- inventory state
+- runtime orchestration fields
 
-2. Runtime model
+---
 
-lot_process_steps
-  = workflow/runtime state tracker
-process_executions
-  = actual execution/log/form record
+## 4. Allowed formData content
 
-Golden rule:
+Allowed examples:
 
-lot_process_step = where material is in the workflow
-process_execution = what happened during that process
-
-⸻
-
-3. What belongs inside formData
-
-Allowed:
-
+```text
 material_details
 operation_logs
-wash logs
-heating logs
-solvent recovery logs
-process-specific remarks
-process-specific readings
-section-level values
+wash_logs
+heating_logs
+solvent_recovery
+process_readings
+oprp_sections
+section-level remarks
+```
 
 Example:
 
+```json
 {
   "material_details": {
-    "input_weight": 250.5,
+    "input_quantity": 250,
     "solvent": "Ethanol",
     "equipment_code": "EXT-01"
   },
   "operation_logs": [
     {
       "wash_no": 1,
-      "start_time": "10:30",
-      "end_time": "11:15",
       "solvent_qty": 25,
       "temperature": 65,
       "remarks": "First wash completed"
     }
   ],
   "solvent_recovery": {
-    "recovered_qty": 12,
-    "recovery_temperature": 78,
+    "recovered_solvent_qty": 12,
     "remarks": "Recovery stable"
   }
 }
+```
 
-⸻
+---
 
-4. What must NOT go inside formData
+## 5. Forbidden inside formData
 
-Do not put these inside formData:
+These must NOT exist inside `formData`:
 
+```text
 startedAt
 completedAt
 verifiedBy
@@ -106,25 +144,37 @@ lotProcessStepId
 processExecutionId
 processDefinitionId
 batchId
+batchNumber
 lotId
+lotNumber
+productId
+productName
+processCode
+processName
+qaqcRequired
+```
 
-These are either:
+These belong elsewhere because they are:
 
-* backend-owned metadata
-* top-level execution fields
-* relation identifiers
-* workflow state fields
+- backend-owned metadata
+- top-level execution fields
+- workflow/runtime fields
+- relation identifiers
+- inventory/runtime state
 
-⸻
+---
 
-5. Correct vs incorrect payload
+## 6. Correct vs incorrect payload
 
-Correct:
+## Correct
 
+```json
 {
-  "quantityIn": 250.5,
-  "equipmentUsed": "EXT-01",
-  "operatorNotes": "Shift note here",
+  "quantityIn": 250,
+  "equipmentUsed": {
+    "equipment_code": "EXT-01"
+  },
+  "operatorNotes": "Night shift started",
   "formData": {
     "operation_logs": [
       {
@@ -134,16 +184,20 @@ Correct:
     ]
   }
 }
+```
 
-Incorrect:
+---
 
+## Incorrect
+
+```json
 {
   "formData": {
     "startedAt": "2026-05-15T18:38:24+05:30",
     "completedAt": null,
     "verifiedBy": null,
-    "quantityIn": 250.5,
-    "operatorNotes": "Shift note here",
+    "quantityIn": 250,
+    "operatorNotes": "Night shift started",
     "operation_logs": [
       {
         "wash_no": 1,
@@ -152,15 +206,21 @@ Incorrect:
     ]
   }
 }
+```
 
-The incorrect version pollutes dynamic JSON with execution metadata.
+Reason:
 
-⸻
+```text
+Execution metadata polluted dynamic process JSON.
+```
 
-6. Top-level execution fields
+---
 
-These belong outside formData:
+## 7. Top-level execution fields
 
+These belong outside `formData`:
+
+```text
 quantityIn
 quantityOut
 quantityLoss
@@ -169,12 +229,15 @@ yieldPercent
 equipmentUsed
 operatorNotes
 supervisorNotes
+```
 
-Progress payload:
+Example progress payload:
 
+```json
 {
-  "quantityIn": 250.5,
-  "equipmentUsed": "EXT-01",
+  "equipmentUsed": {
+    "equipment_code": "EXT-01"
+  },
   "operatorNotes": "Work continued by night shift",
   "formData": {
     "operation_logs": [
@@ -185,16 +248,20 @@ Progress payload:
     ]
   }
 }
+```
 
-Completion payload:
+Example completion payload:
 
+```json
 {
   "quantityOut": 230,
-  "quantityLoss": 20.5,
+  "quantityLoss": 20,
   "lossReason": "Normal process loss",
-  "equipmentUsed": "EXT-01",
-  "operatorNotes": "Completed by operator",
-  "supervisorNotes": "Output reviewed",
+  "equipmentUsed": {
+    "equipment_code": "EXT-01"
+  },
+  "operatorNotes": "Process completed",
+  "supervisorNotes": "Reviewed",
   "formData": {
     "operation_logs": [
       {
@@ -203,22 +270,23 @@ Completion payload:
       }
     ],
     "solvent_recovery": {
-      "recovered_qty": 12
+      "recovered_solvent_qty": 12
     }
   }
 }
+```
 
-⸻
+---
 
-7. Backend-owned metadata
+## 8. Backend-owned metadata
 
 These are display-only:
 
+```text
 created_at
 updated_at
 created_by
 updated_by
-last_updated_by
 started_at
 completed_at
 completed_by
@@ -229,23 +297,25 @@ checked_at
 approved_by
 approved_at
 duration_minutes
-yield_percent, if calculated by backend
+yield_percent, if backend-calculated
+```
 
-Frontend may show them in:
+Frontend may display them in:
 
-* process card
-* workspace header
-* activity timeline
-* read-only metadata panel
+- workspace header
+- process card
+- activity timeline
+- metadata panel
 
-Frontend must not ask users to type these as trusted values.
+Frontend must not trust user-entered values for them.
 
-⸻
+---
 
-8. Relation and workflow fields
+## 9. Relation/runtime fields
 
-These should not be inside formData:
+These should not exist inside `formData`:
 
+```text
 lotProcessStepId
 processExecutionId
 processDefinitionId
@@ -260,22 +330,25 @@ processCode
 processName
 status
 qaqcRequired
+```
 
-They belong in:
+These belong in:
 
-* route params
-* API path/query params
-* top-level DTOs
-* read-only display props
+- route params
+- top-level DTOs
+- backend responses
+- display state
+- runtime context
 
-⸻
+---
 
-9. Repeatable logs
+## 10. Repeatable tables/logs
 
-Repeatable rows live inside formData arrays.
+Repeatable rows live inside `formData` arrays.
 
 Example:
 
+```json
 {
   "operation_logs": [
     {
@@ -292,25 +365,32 @@ Example:
     }
   ]
 }
+```
 
-Current rule:
+Current v1 behavior:
 
-Add Row → local form state only
-Delete Row → local form state only
-Save Progress / Complete Process → persist entire formData
+```text
+Add Row → local state only
+Delete Row → local state only
+Save Progress → persist entire formData
+Complete Process → persist final formData
+```
 
-Do not create separate frontend log entities unless backend explicitly adds row-level APIs later.
+No separate row-level backend APIs currently exist.
 
-⸻
+---
 
-10. Dynamic schema mapping
+## 11. Dynamic schema mapping
 
-Schema may come from:
+Schema source:
 
+```text
 process_definitions.default_form_schema
+```
 
 Example schema:
 
+```json
 {
   "key": "operation_logs",
   "label": "Operation Logs",
@@ -318,20 +398,19 @@ Example schema:
   "fields": [
     {
       "key": "wash_no",
-      "label": "Wash No",
       "type": "number"
     },
     {
       "key": "solvent_qty",
-      "label": "Solvent Quantity",
-      "type": "number",
-      "unit": "L"
+      "type": "number"
     }
   ]
 }
+```
 
-Expected formData:
+Expected `formData`:
 
+```json
 {
   "operation_logs": [
     {
@@ -340,13 +419,15 @@ Expected formData:
     }
   ]
 }
+```
 
-⸻
+---
 
-11. Supported field types
+## 12. Supported field types
 
-Initial supported field types:
+Current supported field types:
 
+```text
 text
 number
 textarea
@@ -356,132 +437,144 @@ time
 datetime
 checkbox
 repeatable_table
+```
 
 Unknown field types should:
 
-* show safe fallback UI
-* not crash the whole form
-* be clearly marked for developers
+- show safe fallback UI
+- not crash the entire form
+- clearly indicate unsupported field type
 
-⸻
+---
 
-12. Form state lifecycle
+## 13. Workspace form lifecycle
 
+```text
 Open workspace
   ↓
 Fetch step details
   ↓
-Fetch existing process execution
+Fetch existing execution
   ↓
 Fetch process definition/schema
   ↓
-Initialize form state from process_execution.form_data
+Initialize local form state from execution.formData
   ↓
 User edits local form state
   ↓
 Save Progress persists formData
   ↓
 Complete Process persists final formData + completion fields
+```
 
 Local edits should not call backend immediately.
 
-⸻
+---
 
-13. Save Progress
+## 14. Save Progress contract
 
-Save Progress calls:
+API:
 
+```http
 PATCH /v2/process-executions/:id/progress
+```
 
 Save Progress:
 
-* allows partial data
-* saves formData and editable top-level fields
-* does not complete the process
-* does not move workflow forward
-* does not call QA/QC APIs
-* does not activate next step
+- allows partial data
+- persists `formData`
+- persists editable top-level execution fields
+- does not complete process
+- does not move workflow forward
+- does not create output inventory
+- does not trigger QA/QC
 
-⸻
+---
 
-14. Complete Process
+## 15. Complete Process contract
 
-Complete Process calls:
+API:
 
+```http
 PATCH /v2/process-executions/:id/complete
+```
 
 Complete Process may require:
 
-* quantityOut
-* quantityLoss, if applicable
-* required schema fields
-* minimum repeatable rows, if schema requires them
-* lossReason when loss is non-zero or abnormal
+- quantityOut
+- quantityLoss if applicable
+- required schema fields
+- minimum repeatable rows if schema requires them
+- lossReason if loss exists
 
 Backend remains final validator.
 
-⸻
+Backend creates:
 
-15. Naming conventions
+- output inventory
+- produce transaction
+- lineage
+- downstream workflow progression
 
-Prefer snake_case keys inside formData.
+---
+
+## 16. Naming conventions
+
+Inside `formData`, prefer:
+
+```text
+snake_case
+```
 
 Good:
 
+```json
 {
   "operation_logs": [],
   "solvent_recovery": {},
   "material_details": {}
 }
+```
 
-Avoid mixing camelCase and snake_case inside the same formData object.
+Avoid:
 
-Frontend TypeScript may use camelCase for DTOs, but adapters should map clearly.
+```text
+random camelCase + snake_case mixing
+```
 
-⸻
+Frontend TypeScript DTOs may still use camelCase externally.
 
-16. Versioning direction
+---
 
-Future field:
+## 17. Read-only states
 
-form_data_version
+Dynamic form becomes read-only when:
 
-Purpose:
+- process execution completed
+- lot_process_step awaiting_qaqc
+- lot_process_step completed
+- workflow locked
+- user lacks permission
 
-* support schema changes over time
-* preserve old execution records
-* allow process form evolution without breaking history
+Read-only mode means:
 
-Current frontend should not overbuild versioning yet.
+- fields disabled
+- Add/Delete Row disabled
+- Save Progress disabled
+- Complete Process disabled
 
-⸻
+Inputs/outputs/summary remain visible.
 
-17. Read-only / locked states
+---
 
-Dynamic form should become read-only when:
+## 18. Example process formData
 
-* process execution is completed
-* lot process step is awaiting QA/QC
-* lot process step is completed
-* lot process step is failed, unless rework editing is allowed
-* user lacks permission
+## 18.1 Extraction
 
-In read-only state:
-
-* fields are disabled or rendered as text
-* Add Row/Delete Row are disabled
-* Save Progress is disabled
-* Complete Process is disabled
-
-⸻
-
-18. Process examples
-
-18.1 Extraction
-
+```json
 {
   "material_details": {
-    "charging_quantity": 250.5,
+    "input_quantity": 250,
     "solvent": "Ethanol",
     "equipment_code": "EXT-01"
   },
@@ -496,40 +589,46 @@ In read-only state:
     }
   ],
   "solvent_recovery": {
-    "recovery_start_time": "12:00",
-    "recovery_end_time": "13:00",
     "recovered_solvent_qty": 12,
     "remarks": "Recovery stable"
   }
 }
+```
 
-18.2 Stripping
+---
 
+## 18.2 Stripping
+
+```json
 {
   "material_details": {
     "input_quantity": 230,
     "equipment_code": "STR-01"
   },
-  "operation_logs": [
+  "stripping_operations": [
     {
       "date": "2026-05-15",
-      "start_time": "15:00",
-      "vacuum_time": "15:20",
+      "starting_at": "15:00",
+      "apply_vacuum": "15:20",
       "direct_steam_start": "15:30",
-      "direct_steam_end": "16:10",
+      "direct_steam_stop": "16:10",
       "remarks": "Normal stripping cycle"
     }
   ],
-  "opr_details": {
+  "oprp_2": {
     "temperature": 80,
     "vacuum": 650,
     "product_obtained": 210,
     "remarks": "Within expected range"
   }
 }
+```
 
-18.3 Purification
+---
 
+## 18.3 Purification
+
+```json
 {
   "material_details": {
     "input_weight": 210,
@@ -546,13 +645,15 @@ In read-only state:
     }
   ]
 }
+```
 
-⸻
+---
 
-19. Adapter rules
+## 19. Adapter responsibilities
 
 Preferred flow:
 
+```text
 backend DTO
   ↓
 processAdapters.ts
@@ -560,23 +661,26 @@ processAdapters.ts
 frontend ProcessExecution type
   ↓
 DynamicProcessForm
+```
 
 Adapter responsibilities:
 
-* map backend snake_case to frontend camelCase where needed
-* keep formData shape intact unless cleanup is required
-* strip forbidden metadata from formData before save
-* map top-level fields to API payload correctly
-* normalize null/undefined values safely
+- normalize backend data
+- safely map snake_case/camelCase where required
+- keep formData shape intact
+- strip forbidden metadata before save
+- map top-level execution fields correctly
+- safely handle null/undefined values
 
-⸻
+---
 
-20. Sanitize before save
+## 20. Sanitize before save
 
-Before Save Progress or Complete Process, frontend should sanitize formData.
+Before Save Progress or Complete Process, frontend should sanitize `formData`.
 
 Remove forbidden keys if they somehow entered local state:
 
+```text
 startedAt
 completedAt
 verifiedBy
@@ -590,53 +694,62 @@ supervisorNotes
 status
 lotProcessStepId
 processExecutionId
+```
 
-This is a safety net, not a substitute for correct state design.
+This is a safety net.
 
-⸻
+Correct state design should prevent this already.
 
-21. Anti-patterns
+---
+
+## 21. Anti-patterns
 
 Do not do these:
 
-Store startedAt inside formData
+```text
 Store quantityIn inside formData
+Store quantityOut inside formData
 Store operatorNotes inside formData
-Store status inside formData
-Create separate frontend log entities for operation rows
-Save every row immediately unless backend explicitly supports row APIs
-Mix camelCase and snake_case randomly inside formData
+Store workflow status inside formData
+Store audit metadata inside formData
+Create separate frontend log entities
+Save every row immediately
+Mix camelCase and snake_case randomly
 Let unknown schema field types crash the form
-Treat backend-owned timestamps as editable text boxes
+Treat backend timestamps as editable inputs
+```
 
-⸻
+---
 
-22. Implementation checklist
+## 22. Implementation checklist
 
 Before modifying a dynamic process form, confirm:
 
+```text
 1. Which fields are top-level execution fields?
 2. Which fields belong inside formData?
 3. Are any fields backend-owned/read-only?
-4. Are repeatable rows stored as arrays inside formData?
+4. Are repeatable rows stored inside formData arrays?
 5. Does Save Progress send only allowed payload fields?
-6. Does Complete Process send final allowed payload fields?
-7. Is formData sanitized before save/complete?
-8. Does read-only state disable editing correctly?
-9. Are unknown schema fields handled safely?
+6. Does Complete Process send only allowed payload fields?
+7. Is formData sanitized before save?
+8. Does read-only state disable editing?
+9. Are unknown schema field types handled safely?
 10. Are field names consistent?
+```
 
-⸻
+---
 
-23. Short locked summary
+## 23. Short locked summary
 
-- process_executions.form_data stores dynamic process-specific data.
+```text
+- process_executions.form_data stores dynamic process-specific data only.
 - Repeatable logs live inside formData arrays.
 - Top-level execution fields stay outside formData.
 - Backend-owned metadata is display-only.
-- Save Progress PATCHes progress with formData and editable top-level fields.
-- Complete Process PATCHes complete with final formData and completion fields.
-- Add/Delete row are local state actions until save/complete.
+- Save Progress persists runtime form data only.
+- Complete Process persists final formData + completion fields.
+- Add/Delete Row are local state actions until save.
 - Frontend sanitizes formData before API calls.
-- Frontend does not create separate log entities unless backend explicitly supports them.
+- Frontend does not create separate row entities in v1.
 ```

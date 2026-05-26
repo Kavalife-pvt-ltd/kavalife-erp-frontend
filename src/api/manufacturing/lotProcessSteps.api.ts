@@ -52,6 +52,9 @@ export type ProcessStepBoardCardDto = {
   productName: string;
   quantity: number;
   unit: string;
+  // TODO: Backend board API should include latest processExecution.quantityIn/quantityOut for richer cards.
+  quantityIn?: number | null;
+  quantityOut?: number | null;
   status: string;
   currentStage: string;
   lastUpdatedBy: string;

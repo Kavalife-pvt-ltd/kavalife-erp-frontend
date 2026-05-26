@@ -1,60 +1,78 @@
 # Frontend Button Behavior Contract
 
-> Status: Active implementation contract  
+> Status: Active frontend implementation contract  
 > Scope: Manufacturing runtime first; extendable to inward, QA/QC, masters, sales, and inventory later  
-> Purpose: Define what frontend buttons/actions are allowed to do, which APIs they call, and what they must never do.
+> Audience: Developers and AI coding agents
 
 ---
 
 ## 1. Purpose
 
-This document exists because button behavior is business logic.
+Button behavior is business logic.
 
-A button is not just UI. In ERP workflows, one button may:
+In the manufacturing runtime, a button may:
 
-- change material state
+- create an official process job
+- consume inventory
 - save process logs
+- complete a process
+- create output inventory
 - trigger QA/QC gates
-- create official records
-- move work to the next department
 - affect audit history
 
-Therefore, every important button must have a documented contract.
-
-This prevents:
-
-- hidden multi-action buttons
-- duplicate record creation
-- frontend moving workflow state incorrectly
-- Codex/AI guessing action behavior
-- accidental API misuse
-- confusing shift handover behavior
+Every important button must have a clear contract.
 
 ---
 
 ## 2. Universal button rule
 
-Every button should usually do exactly one of these:
+A button should usually do exactly one of these:
 
 ```text
 navigate
 modify local UI/form state
-call one backend action
-open/close a dialog
+open/close dialog
 refresh data
+call one backend action
 ```
 
-If a button must do more than one thing, that behavior must be explicitly documented.
+If a button does more than one thing, the behavior must be explicit.
 
-Hidden multi-action behavior is not allowed.
+Hidden multi-action buttons are not allowed.
 
 ---
 
-## 3. Global interaction rules
+## 3. Runtime mental model
 
-## 3.1 Disable while loading
+```text
+lot_process_step
+  = workflow eligibility slot
+  = process can be started
 
-Buttons that call APIs must be disabled while the request is in progress.
+process_execution
+  = actual process job/form/run
+  = created only after selecting inventory + quantity
+
+inventory_lot
+  = material truth
+  = only status=available can be consumed
+```
+
+Important:
+
+```text
+active lot_process_step ≠ process already started
+```
+
+Buttons must not blur this distinction.
+
+---
+
+## 4. Global button rules
+
+## 4.1 Disable while loading
+
+Any button calling an API must be disabled while the request is in progress.
 
 Purpose:
 
@@ -62,30 +80,22 @@ Purpose:
 prevent duplicate submissions
 ```
 
-Example:
+---
 
-```text
-Save Progress clicked
-  ↓
-button disabled
-  ↓
-API returns
-  ↓
-button enabled
-```
+## 4.2 Show feedback
 
-## 3.2 Show feedback
-
-API buttons should provide feedback:
+API buttons should show:
 
 - loading state
-- success toast/message
-- error toast/message
-- inline validation message where useful
+- success feedback
+- backend error message where safe
+- validation message where useful
 
-## 3.3 Preserve audit truth
+---
 
-Buttons must not ask users to manually type trusted identity/date fields.
+## 4.3 Preserve backend truth
+
+Buttons must not let users manually type trusted audit fields.
 
 Backend owns:
 
@@ -94,85 +104,161 @@ Backend owns:
 - checked_by
 - approved_by
 - verified_by
-- started_at
-- completed_at
+- created_at
 - updated_at
+- checked_at
+- approved_at
 - verified_at
+- completed_at
 
-Frontend may display these fields but should not treat them as editable trusted inputs.
+Frontend may display these fields only.
 
-## 3.4 Confirm destructive or final actions
+---
 
-Buttons that finalize or destroy important data should use confirmation dialogs.
+## 4.4 Confirm final/destructive actions
+
+Use confirmation dialogs for:
+
+- Complete Process
+- Approve QA/QC
+- Reject QA/QC
+- Delete persisted record, if supported later
+- Deactivate master record
+
+---
+
+## 4.5 Protect dirty forms
+
+If there are unsaved changes, navigation/close buttons should warn before leaving.
 
 Examples:
 
-- Complete Process
-- Verify QA/QC
-- Reject QA/QC
-- Delete Row if row already persisted later
-- Deactivate master record
-
-## 3.5 Dirty form protection
-
-If a page has unsaved changes, navigation buttons should warn before leaving.
-
-Example actions requiring dirty-state check:
-
 - Back
 - Close modal
+- Refresh workspace
 - Switch route
-- Refresh current data
 
 ---
 
-## 4. Manufacturing runtime button contracts
-
-Manufacturing runtime uses:
-
-```text
-lot_process_steps
-  = workflow/runtime state tracker
-
-process_executions
-  = actual execution/log/form record
-```
-
-Frontend buttons must respect this boundary.
-
-Frontend must not directly:
-
-- create lot_process_steps
-- activate next process steps
-- mark workflow state completed manually
-- decide QA/QC routing
-- move material forward by itself
-
-Backend owns workflow movement.
-
----
-
-## 5. Process Board buttons
+## 5. Process page buttons
 
 Applies to:
 
 ```text
 /manufacturing/processes
 /manufacturing/processes/:processCode
+future process-specific pages like /manufacturing/extraction
 ```
 
-## 5.1 Open / Continue
+---
 
-Location:
+## 5.1 Create New Process
+
+Examples:
 
 ```text
-ProcessCard
+Create New Extraction
+Create New Stripping
+Create New Purification
 ```
 
 Purpose:
 
 ```text
-Open the process workspace for a runtime lot process step.
+Open create process popup.
+```
+
+Behavior:
+
+```text
+open modal/drawer
+```
+
+API:
+
+```text
+none directly
+```
+
+Must not:
+
+- create process execution directly
+- consume inventory
+- auto-select full inventory quantity
+- navigate to workspace directly
+
+---
+
+## 5.2 Start Process
+
+Location:
+
+```text
+Create Process popup
+```
+
+Purpose:
+
+```text
+Create the actual process_execution by consuming selected inventory.
+```
+
+API:
+
+```http
+POST /v2/process-executions
+```
+
+Request must include selected input quantities:
+
+```json
+{
+  "batchId": 37,
+  "processCode": "EXT",
+  "processDefinitionId": 1,
+  "lotProcessStepId": 79,
+  "inputs": [
+    {
+      "inventoryLotId": 17,
+      "quantity": 250
+    }
+  ],
+  "formData": {},
+  "equipmentUsed": {
+    "equipment_code": "EXT-01"
+  },
+  "operatorNotes": "Starting extraction"
+}
+```
+
+Rules:
+
+- require explicit quantity input
+- quantity must not default to full available quantity
+- frontend must not send unit for input consumption
+- disable while submitting
+- show backend errors directly where safe
+
+On success:
+
+- close popup
+- refresh process page/board
+- navigate/open workspace for created execution/step
+
+Must not:
+
+- optimistically reduce inventory
+- manually move workflow state
+- create multiple executions from double click
+
+---
+
+## 5.3 Open / Continue Workspace
+
+Purpose:
+
+```text
+Open an existing process execution workspace/form.
 ```
 
 Behavior:
@@ -181,126 +267,56 @@ Behavior:
 navigate to /manufacturing/workspace/:stepId
 ```
 
-API calls:
+API:
 
 ```text
 none directly from button
 ```
 
-Notes:
+Workspace will fetch runtime data after navigation.
 
-- workspace page will fetch step/execution/schema after navigation
-- this button must not create process execution directly
-- this button must not start or complete process steps
+Must not:
 
-## 5.2 Process Tab Click
+- create process execution
+- consume inventory
+- complete process
+- activate next step
 
-Location:
+---
 
-```text
-ProcessTabs
-```
+## 5.4 Search / Filter / Tabs / Pagination
 
 Purpose:
 
 ```text
-Filter board by process code.
+Change visible process cards/logs.
 ```
 
-Behavior:
+API:
 
-```text
-navigate to /manufacturing/processes/:processCode
+```http
+GET /v2/process-steps/board
 ```
 
-API effect:
+Examples:
 
 ```http
 GET /v2/process-steps/board?processCode=EXT
-```
-
-Notes:
-
-- tab click itself is navigation/filtering
-- it should not call write APIs
-- process code must use backend code like EXT, STR, PUR, DEC, PKG
-
-## 5.3 Search
-
-Location:
-
-```text
-ProcessBoardPage
-```
-
-Purpose:
-
-```text
-Search process cards by batch, lot, product, or supported backend search fields.
-```
-
-Behavior:
-
-```text
-update search state
-fetch board with search query
-```
-
-API:
-
-```http
-GET /v2/process-steps/board?search=<query>
-```
-
-Notes:
-
-- debounce is recommended
-- search should reset page to 1
-
-## 5.4 Filter Status
-
-Purpose:
-
-```text
-Show process cards by status.
-```
-
-API:
-
-```http
-GET /v2/process-steps/board?status=active,in_progress,awaiting_qaqc
-```
-
-Notes:
-
-- no write API
-- should reset page to 1
-
-## 5.5 Pagination Controls
-
-Purpose:
-
-```text
-Navigate through board results.
-```
-
-API:
-
-```http
+GET /v2/process-steps/board?status=in_progress
+GET /v2/process-steps/board?search=BATCH-123
 GET /v2/process-steps/board?page=2&limit=20
 ```
 
-Notes:
+Must not call write APIs.
 
-- no write API
-- preserve active filters while changing page
+---
 
-## 5.6 Refresh Board
+## 5.5 Refresh Process Page
 
 Purpose:
 
 ```text
-Re-fetch current board data.
+Re-fetch current process page data.
 ```
 
 API:
@@ -311,14 +327,80 @@ GET /v2/process-steps/board
 
 with current filters.
 
-Notes:
-
-- no write API
-- should not clear filters unless explicitly designed
+Must not clear filters unless explicitly designed.
 
 ---
 
-## 6. Process Workspace buttons
+## 6. Create Process popup buttons
+
+## 6.1 Select inventory row
+
+Purpose:
+
+```text
+Select or unselect one available inventory lot locally.
+```
+
+API:
+
+```text
+none
+```
+
+Rules:
+
+- only display/select `status=available` lots
+- show available quantity and unit
+- do not transform unit text
+- do not send unit in create payload
+
+---
+
+## 6.2 Quantity input
+
+Purpose:
+
+```text
+Set quantity to consume from selected lot.
+```
+
+API:
+
+```text
+none until Start Process
+```
+
+Rules:
+
+- default empty or 0
+- must be explicitly entered
+- prevent quantity <= 0
+- prevent quantity > available quantity in UI
+- backend remains final validator
+
+---
+
+## 6.3 Cancel create popup
+
+Purpose:
+
+```text
+Close popup without creating execution.
+```
+
+API:
+
+```text
+none
+```
+
+If popup has unsaved input, optional confirmation is allowed.
+
+Must not consume inventory.
+
+---
+
+## 7. Process workspace buttons
 
 Applies to:
 
@@ -326,18 +408,22 @@ Applies to:
 /manufacturing/workspace/:stepId
 ```
 
-## 6.1 Back
+Workspace is for existing process executions only.
+
+---
+
+## 7.1 Back
 
 Purpose:
 
 ```text
-Leave workspace and return to previous page/board.
+Leave workspace and return to process page/board.
 ```
 
 Behavior:
 
 ```text
-if form is dirty:
+if dirty:
   show unsaved changes confirmation
 else:
   navigate back
@@ -349,31 +435,21 @@ API:
 none
 ```
 
-Confirmation options:
+Must not:
 
-```text
-Stay
-Leave Without Saving
-Save and Leave, optional future behavior
-```
+- silently save
+- create execution
+- complete process
+- move workflow
 
-Notes:
+---
 
-- Back must not auto-save silently
-- Back must not complete process
-
-## 6.2 Save Progress
+## 7.2 Save Progress
 
 Purpose:
 
 ```text
-Persist current process execution data without completing the process.
-```
-
-Runtime meaning:
-
-```text
-Save Progress = update process_executions.form_data and editable execution fields
+Persist runtime form/process data without completing the process.
 ```
 
 API:
@@ -382,69 +458,44 @@ API:
 PATCH /v2/process-executions/:id/progress
 ```
 
-Expected payload shape:
+Expected payload:
 
 ```json
 {
-  "quantityIn": 250.5,
-  "equipmentUsed": "Extractor-1",
-  "operatorNotes": "Shift note here",
   "formData": {
-    "operation_logs": [
-      {
-        "wash_no": 1,
-        "solvent_qty": 25
-      }
-    ]
-  }
+    "operation_logs": []
+  },
+  "equipmentUsed": {
+    "equipment_code": "EXT-01"
+  },
+  "operatorNotes": "First wash completed"
 }
 ```
 
-Save Progress may update:
+May update:
 
 - formData
-- quantityIn
 - equipmentUsed
 - operatorNotes
 
-Save Progress must not:
+Must not:
 
+- create process execution
+- consume inventory
+- create output inventory
 - complete process
 - move workflow forward
 - activate next step
-- create duplicate process execution
-- place backend-owned metadata inside formData
+- put audit metadata inside formData
 
-Important execution rule:
+---
 
-```text
-If process_execution does not exist, workspace load should create it once.
-Save Progress should generally only PATCH existing execution.
-```
-
-If Save Progress must create execution as a fallback, it may do this only once:
-
-```text
-POST /v2/process-executions
-  ↓
-store returned execution id
-  ↓
-PATCH /v2/process-executions/:id/progress
-```
-
-But preferred behavior is:
-
-```text
-create/get execution during workspace load
-Save Progress = PATCH only
-```
-
-## 6.3 Complete Process
+## 7.3 Complete Process
 
 Purpose:
 
 ```text
-Finish the current process execution.
+Finish the current process execution and create output inventory.
 ```
 
 API:
@@ -453,122 +504,90 @@ API:
 PATCH /v2/process-executions/:id/complete
 ```
 
-Expected payload shape:
+Requires confirmation.
+
+Expected payload:
 
 ```json
 {
-  "quantityOut": 230,
-  "quantityLoss": 20.5,
+  "quantityOut": 240,
+  "quantityLoss": 10,
   "lossReason": "Normal process loss",
-  "equipmentUsed": "Extractor-1",
-  "operatorNotes": "Completed by night shift",
-  "supervisorNotes": "Reviewed output",
   "formData": {
-    "operation_logs": [
-      {
-        "wash_no": 1,
-        "solvent_qty": 25
-      }
-    ]
-  }
+    "operation_logs": []
+  },
+  "equipmentUsed": {
+    "equipment_code": "EXT-01"
+  },
+  "operatorNotes": "Extraction completed",
+  "outputs": [
+    {
+      "productId": 1,
+      "quantity": 240,
+      "unitOfMeasure": "kg",
+      "inventoryType": "wip",
+      "currentLocation": "WIP Storage"
+    }
+  ]
 }
 ```
 
-Complete Process must:
+Frontend may preview:
 
-- require an existing execution id
+```text
+quantityLoss = quantityIn - quantityOut
+yieldPercent = quantityOut / quantityIn * 100
+```
+
+Backend owns final persisted values.
+
+Must:
+
+- require existing execution id
 - validate required completion fields
-- show confirmation before submitting
-- disable while loading
-- refresh workspace/board after success
+- disable while completing
+- refresh execution/outputs/page after success
 
-Complete Process must not:
+Must not:
 
-- create execution implicitly at completion time
+- create execution implicitly
 - call process-step movement APIs directly
 - manually activate next step
-- manually mark lot/batch completed
+- manually release QA/QC inventory
+- optimistically mark complete before backend response
 
-Backend decides:
+---
 
-```text
-if QA/QC required:
-  lot_process_step → awaiting_qaqc
-
-else:
-  lot_process_step → completed
-  next pending step → active
-```
-
-## 6.4 Complete Stage
+## 7.4 Refresh Workspace
 
 Purpose:
 
 ```text
-Optional local stage marker inside a process form.
+Re-fetch current workspace data.
 ```
 
-Current rule:
-
-```text
-Complete Stage is not a backend workflow action yet.
-```
-
-Until backend supports internal process stage state, this button should be:
-
-- hidden, or
-- disabled, or
-- local form-state only
-
-It must not:
-
-- move lot_process_steps
-- call complete process API
-- activate next workflow step
-
-## 6.5 Refresh Workspace
-
-Purpose:
-
-```text
-Re-fetch current step/execution/schema data.
-```
-
-API:
+APIs:
 
 ```http
 GET /v2/process-steps/:stepId
 GET /v2/process-executions/step/:stepId
 GET /v2/process-definitions/:processDefinitionId
+GET /v2/process-executions/:id/inputs
+GET /v2/process-executions/:id/outputs
 ```
 
-Behavior:
-
-- if form is dirty, warn first
-- if not dirty, re-fetch directly
+If dirty, warn before refreshing.
 
 ---
 
-## 7. Dynamic form buttons
+## 8. Dynamic form buttons
 
-## 7.1 Add Row
-
-Location:
-
-```text
-RepeatableTable
-```
+## 8.1 Add Row
 
 Purpose:
 
 ```text
-Add a local repeatable log row.
-```
-
-Behavior:
-
-```text
-update local form state only
+Add local repeatable form row.
 ```
 
 API:
@@ -584,25 +603,14 @@ Save Progress
 Complete Process
 ```
 
-Example:
+---
 
-```text
-Add Wash Row
-  → adds another object to formData.operation_logs locally
-```
-
-## 7.2 Delete Row
+## 8.2 Delete Row
 
 Purpose:
 
 ```text
-Remove a local repeatable log row.
-```
-
-Behavior:
-
-```text
-update local form state only
+Remove local repeatable form row.
 ```
 
 API:
@@ -611,24 +619,18 @@ API:
 none immediately
 ```
 
-Persisted by:
+Persisted by Save Progress / Complete Process.
 
-```text
-Save Progress
-Complete Process
-```
+If row-level audit becomes required later, backend should add explicit row APIs.
 
-Notes:
+---
 
-- if row deletion becomes audit-sensitive later, backend should support explicit row-level history
-- for now repeatable rows are part of formData JSON
-
-## 7.3 Clear Field
+## 8.3 Clear Field
 
 Purpose:
 
 ```text
-Clear one local field value.
+Clear local field value.
 ```
 
 API:
@@ -641,9 +643,9 @@ Persisted by Save Progress / Complete Process.
 
 ---
 
-## 8. Confirmation dialog buttons
+## 9. Confirmation dialogs
 
-## 8.1 Confirm Complete Process
+## 9.1 Confirm Complete Process
 
 Triggered by:
 
@@ -665,18 +667,21 @@ Cancel:
 
 Confirm Complete:
 
-- calls `PATCH /v2/process-executions/:id/complete`
+- calls complete API
 - disables while loading
 - closes dialog on success
-- refreshes data on success
+- refreshes runtime data
 
-## 8.2 Unsaved Changes Dialog
+---
+
+## 9.2 Unsaved Changes Dialog
 
 Triggered by:
 
 - Back
+- Close modal
 - Refresh
-- route change, where supported
+- route change where supported
 
 Buttons:
 
@@ -694,239 +699,169 @@ Stay:
 Leave Without Saving:
 
 - discard local unsaved state
-- navigate away
+- navigate/close
 - no API
 
 Save and Leave:
 
 - optional future behavior
 - would call Save Progress first
-- then navigate on success
+- navigate only after success
 
 ---
 
-## 9. QA/QC button contracts - high-level placeholder
+## 10. QA/QC buttons - high-level
 
-Detailed QA/QC behavior belongs in:
+Detailed QA/QC docs can be separate.
 
-```text
-docs/frontend/03-qaqc-ui-contract.md
-docs/frontend/qaqc/step-qaqc.md
-```
+## Open QA/QC
 
-High-level rules:
+Navigate/open QA/QC screen.
 
-## 9.1 Open QA/QC
+No verification action immediately.
 
-Behavior:
+---
 
-- navigate/open QA/QC screen
-- no verification action immediately
+## Approve QA/QC
 
-## 9.2 Save QA/QC Draft
-
-Behavior:
-
-- save QA/QC form data if draft support exists
-- otherwise hide until backend supports it
-
-## 9.3 Approve QA/QC
-
-Behavior:
+Must:
 
 - show confirmation
 - call backend verify/approve endpoint
-- backend moves process state forward
+- let backend move workflow and release inventory
 
-Frontend must not manually activate next step.
+Must not:
 
-## 9.4 Reject QA/QC
-
-Behavior:
-
-- require rejection reason
-- call backend reject endpoint
-- backend marks target failed/rework as appropriate
-
-## 9.5 Retest Required
-
-Behavior:
-
-- require retest reason
-- call backend retest endpoint if supported
-- backend controls status
+- manually activate next step
+- manually set inventory available
 
 ---
 
-## 10. Inward operation button contracts - high-level placeholder
+## Reject QA/QC
 
-Detailed VIR/GRN behavior belongs in:
+Must:
 
-```text
-docs/frontend/02-inward-operations-ui-contract.md
-docs/frontend/inward/vir.md
-docs/frontend/inward/grn.md
-docs/frontend/inward/grn-qaqc.md
-```
+- require rejection reason
+- call backend reject endpoint
+- let backend control resulting status
 
-High-level rules:
+---
 
-## 10.1 Create VIR
+## 11. Inward operation buttons - high-level
 
-Purpose:
+## Create VIR
 
-```text
-Record truck/material arrival inspection.
-```
+Creates vehicle inspection record.
 
-This is a real create action.
+Backend owns created_by/created_at.
 
-## 10.2 Verify VIR
+---
 
-Purpose:
+## Verify VIR
 
-```text
-Approve vehicle/material inspection so GRN can be created.
-```
+Approves inspection so GRN can be created.
 
-Backend should own checked_by/checked_at.
+Backend owns checked_by/checked_at.
 
-## 10.3 Create GRN
+---
 
-Purpose:
+## Create GRN
 
-```text
-Officially receive material from a completed VIR.
-```
+Officially receives material from verified VIR.
 
-Backend should prevent duplicate GRN for same VIR.
+Backend prevents duplicate invalid flows.
 
-## 10.4 Create GRN QA/QC
+---
 
-Purpose:
+## Create GRN QA/QC
 
-```text
-Create QA/QC entry for received material.
-```
+Creates QA/QC entry for received material.
 
-Backend should prevent duplicate pending QA/QC for same GRN.
+---
 
-## 10.5 Create Batch from GRN
+## Approve GRN QA/QC
 
-Purpose:
+Backend:
 
-```text
-Start manufacturing runtime after GRN QA/QC approval.
-```
+- approves GRN QA/QC
+- creates raw inventory lot
+- creates receipt inventory transaction
+
+Frontend must not create raw inventory manually.
+
+---
+
+## Create Batch from GRN
+
+Starts manufacturing runtime after GRN QA/QC approval.
 
 Backend creates:
 
 - batch
-- initial lot
-- lot process steps
+- runtime lot/step structure
 - first active step
 
-Frontend must not create these runtime steps manually.
+Frontend must not create these manually.
 
 ---
 
-## 11. Masters button contracts - high-level placeholder
+## 12. Button disabled rules
 
-Detailed masters behavior belongs in:
+## Start Process disabled when
 
-```text
-docs/frontend/04-masters-ui-contract.md
-docs/frontend/masters/*
-```
-
-Masters buttons usually follow admin CRUD patterns:
-
-- Create
-- Edit
-- Save
-- Cancel
-- Activate/Deactivate
-- Search
-- Filter
-- Pagination
-
-Important rules:
-
-- prefer deactivate over hard delete for important business data
-- show confirmation for deactivate/delete
-- do not allow deleting records already used in runtime history unless backend supports safe archival
+- no inventory selected
+- selected quantity <= 0
+- quantity exceeds available quantity
+- submit in progress
+- required context missing
 
 ---
 
-## 12. Button loading and disabled states
-
-## 12.1 Save Progress
-
-Disabled when:
-
-- execution id missing and creation failed
-- save request in progress
-- form is read-only
-- process is completed/locked
-
-## 12.2 Complete Process
-
-Disabled when:
+## Save Progress disabled when
 
 - execution id missing
-- completion request in progress
-- required completion fields missing
-- process is already completed
-- process is awaiting QA/QC
-- process is failed/rework unless backend allows action
-
-## 12.3 Add Row
-
-Disabled when:
-
-- form is read-only
-- max rows reached, if schema defines maxRows
-
-## 12.4 Delete Row
-
-Disabled when:
-
-- form is read-only
-- min rows would be violated, if schema defines minRows
-
-## 12.5 Open / Continue
-
-Disabled when:
-
-- step id missing
-- user does not have access
-- process state is not openable
+- save in progress
+- workspace read-only
+- execution completed/locked
 
 ---
 
-## 13. Button/access permission rules
+## Complete Process disabled when
 
-Button visibility should be controlled by:
+- execution id missing
+- complete in progress
+- required completion fields missing
+- execution already completed
+- workflow awaiting QA/QC
+- workspace read-only
+
+---
+
+## Add/Delete Row disabled when
+
+- form read-only
+- schema min/max row rule would be violated
+
+---
+
+## Open/Continue disabled when
+
+- step id missing
+- user lacks access
+- backend says state is not openable
+
+---
+
+## 13. Permissions
+
+Button visibility may depend on:
 
 - user role
 - user department
 - process status
-- backend permissions where available
+- backend permissions
 
-Examples:
-
-```text
-Production employee
-  → can open/save production process assigned to their department
-
-QA/QC employee
-  → can open QA/QC queue and verify tests
-
-Admin/manager
-  → can view broader runtime and reports
-```
-
-UI hiding is not security.
+Frontend hiding is not security.
 
 Backend must enforce permissions.
 
@@ -937,22 +872,25 @@ Backend must enforce permissions.
 Do not do these:
 
 ```text
-Save Progress creates a new process_execution every time
+Open workspace starts process execution
+Save Progress creates process execution
 Complete Process creates execution if missing
-Open / Continue starts workflow movement
-Add Row immediately calls backend
+Create New Process consumes inventory before Start Process
+Start Process auto-consumes full available quantity
+Frontend sends trusted audit fields
+Frontend sends unit for input consumption
 Frontend manually activates next process step
-Frontend manually marks QA/QC approved without backend verify endpoint
-Frontend sends trusted created_by/updated_by/verified_by fields
-Backend-owned timestamps are editable text boxes
-A button silently calls 3 APIs without documentation
+Frontend manually marks QA/QC approved without verify endpoint
+Frontend manually releases under_qaqc inventory
+Add Row immediately calls backend
+A button silently calls multiple write APIs without documentation
 ```
 
-If one of these seems necessary, update this contract first and explain why.
+If any of these seem necessary, update this contract first and explain why.
 
 ---
 
-## 15. Implementation checklist for new buttons
+## 15. New button checklist
 
 Before implementing a new button, answer:
 
@@ -971,25 +909,29 @@ Before implementing a new button, answer:
 12. What must it never do?
 ```
 
-If these are not clear, do not implement yet.
+If unclear, do not implement yet.
 
 ---
 
 ## 16. Current manufacturing runtime button summary
 
 ```text
-Process Board
-- Process Tab Click → navigate/filter, GET board
-- Search → update filter, GET board
-- Filter Status → update filter, GET board
-- Pagination → GET board with page/limit
-- Open / Continue → navigate to workspace, no write API
+Process Page
+- Create New Process → opens popup, no API
+- Start Process → POST /v2/process-executions
+- Open/Continue → navigate workspace, no write API
+- Search/Filter/Pagination → GET board/list only
+- Refresh → GET current data only
 
-Process Workspace
-- Back → navigate, no API, warn if dirty
+Create Process Popup
+- Select Inventory → local state only
+- Quantity Input → local state only
+- Cancel → close popup, no API
+
+Workspace
+- Back → navigate, warn if dirty
 - Save Progress → PATCH /v2/process-executions/:id/progress
 - Complete Process → PATCH /v2/process-executions/:id/complete
-- Complete Stage → not backend action yet
 - Refresh → re-fetch, warn if dirty
 
 Dynamic Form
@@ -997,8 +939,7 @@ Dynamic Form
 - Delete Row → local state only
 - Clear Field → local state only
 
-Confirmation Dialogs
-- Confirm Complete → complete API
-- Cancel → close dialog, no API
-- Leave Without Saving → navigate, no API
+QA/QC
+- Approve/Reject → backend verify endpoint only
+- frontend never releases inventory manually
 ```

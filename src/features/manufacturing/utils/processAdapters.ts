@@ -64,6 +64,7 @@ export function mapActiveStepToCard(dto: ActiveLotProcessStepDto): LotProcessSte
     batchNumber: dto.batch_number,
     lotId: String(dto.lot_id),
     lotNumber: dto.lot_number,
+    productId: String(dto.product_id),
     productName: dto.product_name,
     quantity: 0,
     unit: 'unit',
@@ -84,9 +85,12 @@ export function mapBoardCardToCard(dto: ProcessStepBoardCardDto): LotProcessStep
     batchNumber: dto.batchNumber,
     lotId: String(dto.lotId),
     lotNumber: dto.lotNumber,
+    productId: String(dto.productId),
     productName: dto.productName,
     quantity: dto.quantity,
     unit: dto.unit,
+    executionQuantityIn: dto.quantityIn ?? undefined,
+    executionQuantityOut: dto.quantityOut ?? undefined,
     status: normalizeProcessStatus(dto.status),
     currentStage: dto.currentStage,
     lastUpdatedBy: dto.lastUpdatedBy,
@@ -111,9 +115,12 @@ export function mapStepDetailToCard(
     batchNumber: dto.batch_number,
     lotId: String(dto.lot_id),
     lotNumber: dto.lot_number,
+    productId: undefined,
     productName: definition?.name ?? dto.process_name,
-    quantity: execution?.quantityIn ?? 0,
+    quantity: 0,
     unit: 'unit',
+    executionQuantityIn: execution?.quantityIn ?? undefined,
+    executionQuantityOut: execution?.quantityOut ?? undefined,
     status: normalizeProcessStatus(dto.status),
     currentStage: getCurrentStageLabel(dto.status, dto.step_order),
     lastUpdatedBy: getBackendActorLabel(execution),
@@ -251,7 +258,7 @@ export function normalizeProcessStatus(status: string): ProcessStatus {
   const normalized = status.toLowerCase();
 
   if (normalized === 'active' || normalized === 'started') {
-    return 'in_progress';
+    return 'ready';
   }
 
   if (normalized === 'awaiting_qaqc' || normalized === 'qa_pending') {
@@ -394,6 +401,10 @@ function getCurrentStageLabel(status: string, stepOrder: number): string {
 
   if (normalized === 'pending') {
     return `Step ${stepOrder} pending`;
+  }
+
+  if (normalized === 'ready') {
+    return `Step ${stepOrder} ready to start`;
   }
 
   if (normalized === 'completed') {

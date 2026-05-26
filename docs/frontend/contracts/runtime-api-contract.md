@@ -1,55 +1,175 @@
 # Manufacturing Runtime API Contract
 
 > Status: Active implemented contract  
-> Scope: Frontend ↔ Backend integration for the inventory-driven manufacturing runtime  
-> Purpose: Single source of truth for request payloads, response payloads, runtime statuses, and frontend behavior.
+> Scope: Frontend ↔ Backend runtime integration  
+> Audience: Developers and AI coding agents
 
 ---
 
-# 1. Runtime Overview
+## 1. Purpose
 
-The manufacturing runtime is inventory-driven.
+This document defines the active frontend/backend contract for the inventory-driven manufacturing runtime.
 
-Current implemented flow:
+The runtime flow is:
 
-1. GRN QA/QC approval creates a raw `inventory_lot` and a `receipt` transaction.
-2. `POST /v2/process-executions` with `inputs` consumes selected inventory immediately.
-3. `PATCH /v2/process-executions/:id/progress` saves progress only.
-4. `PATCH /v2/process-executions/:id/complete` with `outputs` creates output inventory, a `produce` transaction, `process_execution_outputs`, and `lot_lineage`.
-5. If the process step requires QA/QC, output inventory is created as `under_qaqc`.
-6. QA/QC approval for `process_type = lot_process_step` releases that output inventory to `available`.
+```text
+Create New Process
+  ↓
+Select inventory + quantity
+  ↓
+Create process execution
+  ↓
+Consume inventory
+  ↓
+Open workspace/form
+  ↓
+Save progress
+  ↓
+Complete process
+  ↓
+Create output inventory
+  ↓
+QA/QC gate if required
+  ↓
+Output becomes available for downstream process
+```
 
-The backend remains the source of truth for inventory mutation, workflow progression, QA/QC gating, audit fields, and timestamps.
+Backend remains the source of truth for:
+
+- inventory mutation
+- workflow progression
+- QA/QC gating
+- lineage
+- audit metadata
+- timestamps
 
 ---
 
-# 2. Create Process Execution
+## 2. Runtime mental model
+
+```text
+lot_process_step
+  = workflow eligibility slot
+  = this process is allowed to start
+
+process_execution
+  = actual operator process job
+
+inventory_lot
+  = material truth
+
+process_execution_inputs
+  = consumed inventory
+
+process_execution_outputs
+  = produced inventory
+```
+
+Important:
+
+```text
+active lot_process_step ≠ execution already exists
+```
+
+Frontend must not auto-create execution during workspace load.
+
+---
+
+## 3. Runtime lifecycle
+
+## 3.1 Inward flow
+
+```text
+VIR
+  ↓
+GRN
+  ↓
+GRN QA/QC approved
+  ↓
+Raw inventory created
+  ↓
+Batch created
+```
+
+GRN QA/QC approval creates:
+
+- raw `inventory_lot`
+- `receipt` inventory transaction
+
+---
+
+## 3.2 Process runtime flow
+
+```text
+Operator opens process page
+  ↓
+Create New Process
+  ↓
+Select eligible inventory + quantity
+  ↓
+POST /v2/process-executions
+  ↓
+Backend consumes inventory
+  ↓
+Workspace/form opens
+  ↓
+PATCH progress API while working
+  ↓
+PATCH complete API when done
+  ↓
+Backend creates output inventory
+  ↓
+Output inventory becomes next process input
+```
+
+---
+
+## 4. Create process execution
 
 ## POST /v2/process-executions
 
-Creates a process execution. When `inputs` is supplied, inventory is consumed immediately in the same transaction.
+Purpose:
+
+- create process execution
+- consume inventory
+- create consume transactions
+- create process_execution_inputs
 
 Request:
 
 ```json
 {
-  "batchId": 33,
+  "batchId": 37,
   "processCode": "EXT",
   "processDefinitionId": 1,
+  "lotProcessStepId": 79,
   "inputs": [
     {
       "inventoryLotId": 17,
-      "quantity": 5
+      "quantity": 250
     }
   ],
-  "formData": {
-    "runId": "E2E-1779358227",
-    "stage": "extraction"
-  },
+  "formData": {},
   "equipmentUsed": {
     "equipment_code": "EXT-01"
   },
   "operatorNotes": "Starting extraction"
+}
+```
+
+Important frontend rules:
+
+- operator must explicitly enter quantity
+- frontend must not auto-fill full available quantity
+- frontend must not send unit for input consumption
+- backend derives unit from inventory lot
+
+Correct input payload:
+
+```json
+{
+  "inventoryLotId": 17,
+  "quantity": 250
 }
 ```
 
@@ -61,20 +181,18 @@ Response:
   "message": "Process execution created successfully",
   "data": {
     "id": 21,
-    "lotProcessStepId": 63,
-    "quantityIn": 5,
+    "lotProcessStepId": 79,
+    "quantityIn": 250,
     "status": "in_progress",
     "createdAt": "2026-05-21T10:00:00Z",
     "inputs": [
       {
-        "id": 7,
         "inventoryLotId": 17,
         "lotNumber": "RAW-ASH_ROOT-052026-002",
         "productId": 1,
         "productName": "Ashwagandha Root",
-        "batchId": 33,
-        "quantityConsumed": 5,
-        "balanceAfter": 7.5,
+        "quantityConsumed": 250,
+        "balanceAfter": 250,
         "unitOfMeasure": "kg",
         "inventoryTransactionId": 17
       }
@@ -85,40 +203,32 @@ Response:
 
 Backend side effects:
 
-- decreases `inventory_lots.available_quantity`
-- changes input lot status to `consumed` when the new balance is zero
+- reduces `inventory_lots.available_quantity`
+- marks lot `consumed` if balance becomes zero
 - creates `inventory_transactions.transaction_type = consume`
 - creates `process_execution_inputs`
-- sets `process_executions.quantity_in` to the sum of inputs
-
-Legacy request still supported:
-
-```json
-{
-  "lotProcessStepId": 63,
-  "formData": {}
-}
-```
-
-If `inputs` is omitted, the legacy frontend flow continues and inventory is not consumed by this call.
+- updates `process_executions.quantity_in`
 
 ---
 
-# 3. Save Progress
+## 5. Save progress
 
 ## PATCH /v2/process-executions/:id/progress
 
-Saves in-progress process data only.
+Purpose:
+
+```text
+Save runtime form/process data only.
+```
 
 Request:
 
 ```json
 {
-  "quantityIn": 5,
   "formData": {
-    "runId": "E2E-1779358227",
-    "stage": "extraction",
-    "temperature": "65C"
+    "material_details": {},
+    "operation_logs": [],
+    "solvent_recovery": {}
   },
   "equipmentUsed": {
     "equipment_code": "EXT-01"
@@ -135,64 +245,72 @@ Response:
   "message": "Process execution progress updated successfully",
   "data": {
     "id": 21,
-    "lotProcessStepId": 63,
     "status": "in_progress",
-    "quantityIn": 5,
-    "formData": {
-      "runId": "E2E-1779358227",
-      "stage": "extraction",
-      "temperature": "65C"
-    },
-    "equipmentUsed": {
-      "equipment_code": "EXT-01"
-    },
-    "operatorNotes": "Extraction in progress",
     "updatedAt": "2026-05-21T10:15:00Z"
   }
 }
 ```
 
-Frontend rule: this endpoint does not mutate inventory, create output lots, create lineage, or advance workflow status.
+This endpoint must not:
+
+- consume inventory
+- create outputs
+- advance workflow
+- complete process
+- create lineage
 
 ---
 
-# 4. Complete Process Execution
+## 6. Complete process execution
 
 ## PATCH /v2/process-executions/:id/complete
 
-Completes the process execution. When `outputs` is supplied, output inventory is produced.
+Purpose:
+
+- complete process execution
+- create output inventory
+- create produce transaction
+- create lineage
+- move workflow forward
 
 Request:
 
 ```json
 {
-  "quantityOut": 4,
-  "quantityLoss": 1,
+  "quantityOut": 240,
+  "quantityLoss": 10,
   "lossReason": "Normal extraction loss",
   "formData": {
-    "runId": "E2E-1779358227",
-    "stage": "extraction",
-    "completed": true
+    "material_details": {},
+    "operation_logs": [],
+    "solvent_recovery": {}
   },
   "equipmentUsed": {
     "equipment_code": "EXT-01"
   },
-  "operatorNotes": "Completed extraction",
-  "supervisorNotes": "Checked",
+  "operatorNotes": "Extraction completed",
   "outputs": [
     {
       "productId": 1,
-      "quantity": 4,
+      "quantity": 240,
       "unitOfMeasure": "kg",
       "inventoryType": "wip",
-      "currentLocation": "E2E WIP Storage",
-      "notes": "Extraction output"
+      "currentLocation": "WIP Storage"
     }
   ]
 }
 ```
 
-Response when the step requires QA/QC:
+Frontend may preview:
+
+```text
+quantityLoss = quantityIn - quantityOut
+yieldPercent = quantityOut / quantityIn * 100
+```
+
+Backend owns final persisted values.
+
+Response:
 
 ```json
 {
@@ -200,10 +318,10 @@ Response when the step requires QA/QC:
   "message": "Process execution completed successfully",
   "data": {
     "id": 21,
-    "quantityIn": 5,
-    "quantityOut": 4,
-    "quantityLoss": 1,
-    "yieldPercent": 80,
+    "quantityIn": 250,
+    "quantityOut": 240,
+    "quantityLoss": 10,
+    "yieldPercent": 96,
     "status": "completed",
     "completedAt": "2026-05-21T10:30:00Z",
     "outputs": [
@@ -212,7 +330,7 @@ Response when the step requires QA/QC:
         "lotNumber": "OUT-EXT-052026-002",
         "productId": 1,
         "productName": "Ashwagandha Root",
-        "quantityProduced": 4,
+        "quantityProduced": 240,
         "unitOfMeasure": "kg",
         "inventoryType": "wip",
         "status": "under_qaqc",
@@ -226,63 +344,122 @@ Response when the step requires QA/QC:
 
 Backend side effects:
 
-- updates process execution completion fields
-- creates one output `inventory_lot`
-- creates one `inventory_transactions.transaction_type = produce`
-- creates one `process_execution_outputs` row
-- creates `lot_lineage` rows from consumed input lots to the output lot
-- updates `lot_process_steps` using existing workflow rules
+- completes process execution
+- creates output `inventory_lot`
+- creates `produce` transaction
+- creates `process_execution_outputs`
+- creates `lot_lineage`
+- updates workflow step state
 
-Quantity example:
+---
+
+## 7. QA/QC-gated output behavior
+
+If process requires QA/QC:
 
 ```text
-quantityIn  = 5
-quantityOut = 4
-quantityLoss = 1
-yieldPercent = 80
+process completed
+  ↓
+output inventory status = under_qaqc
+  ↓
+workflow step = awaiting_qaqc
+  ↓
+QA/QC approval
+  ↓
+output inventory status = available
+  ↓
+next process step activates
 ```
 
-Legacy completion without `outputs` remains supported and does not create output inventory artifacts.
+Frontend rules:
+
+- `under_qaqc` inventory must not be selectable
+- only `status = available` inventory may be consumed
+- frontend must not manually release inventory
+
+Backend enforces these rules.
 
 ---
 
-# 5. QA/QC-Gated Output Availability
+## 8. Runtime read APIs
 
-If the process step requires QA/QC:
+## 8.1 Inventory lots
 
-- output lot is created with `status = under_qaqc`
-- the lot must not be selectable as a downstream input
-- `lot_process_step` moves through the existing QA/QC path
+```http
+GET /v2/inventory-lots
+```
 
-After QA/QC approval for `process_type = lot_process_step`:
+Used for:
 
-- matching output lots where `source_type = process_execution` and `status = under_qaqc` become `available`
-- consumed, scrapped, and rejected lots are not modified
-- retrying approval is safe and should not duplicate inventory rows
+- inventory browser
+- process input selection
+- inventory visibility
 
-Frontend rule: only `status = available` lots may be offered as process inputs.
+For process input selection:
+
+```http
+GET /v2/inventory-lots?status=available
+```
 
 ---
 
-# 6. Read APIs Used By Runtime UI
+## 8.2 Inventory transactions
 
-## GET /v2/inventory-lots
+```http
+GET /v2/inventory-transactions
+```
 
-Use for inventory browser and input selection. For process input selection, filter or display only `status = available`.
+Used for:
 
-## GET /v2/inventory-transactions
+- ledger view
+- audit/history
+- inventory mutation history
 
-Use for ledger/audit views. Runtime creates `receipt`, `consume`, and `produce` rows.
+Runtime creates:
 
-## GET /v2/process-executions/:id/inputs
+```text
+receipt
+consume
+produce
+```
 
-Returns lots consumed by one execution.
+transactions.
 
-## GET /v2/process-executions/:id/outputs
+---
 
-Returns output lots produced by one execution.
+## 8.3 Execution inputs
 
-## GET /v2/inventory-lots/:id/lineage
+```http
+GET /v2/process-executions/:id/inputs
+```
+
+Used to display:
+
+- consumed lots
+- quantities consumed
+- source inventory
+
+---
+
+## 8.4 Execution outputs
+
+```http
+GET /v2/process-executions/:id/outputs
+```
+
+Used to display:
+
+- produced lots
+- quantities produced
+- QA/QC state
+
+---
+
+## 8.5 Lineage
+
+```http
+GET /v2/inventory-lots/:id/lineage
+```
 
 Returns non-recursive lineage:
 
@@ -292,36 +469,142 @@ Returns non-recursive lineage:
 
 ---
 
-# 7. Inventory Status UI Rules
+## 8.6 Process board
+
+```http
+GET /v2/process-steps/board
+```
+
+Used for:
+
+- process pages
+- process runtime cards
+- filtering/search
+- workflow visibility
+
+Example filters:
+
+```text
+processCode
+status
+batchNumber
+lotNumber
+productId
+search
+```
+
+---
+
+## 9. Inventory status rules
 
 | Backend Status | Selectable As Input | Suggested UI Label |
-| :--- | :--- | :--- |
-| `available` | Yes | Available |
-| `under_qaqc` | No | Under QA/QC |
-| `consumed` | No | Consumed |
-| `scrapped` | No | Scrapped |
-| `rejected` | No | Rejected |
+| :------------- | :------------------ | :----------------- |
+| `available`    | Yes                 | Available          |
+| `under_qaqc`   | No                  | Under QA/QC        |
+| `consumed`     | No                  | Consumed           |
+| `scrapped`     | No                  | Scrapped           |
+| `rejected`     | No                  | Rejected           |
+
+Frontend must not allow non-available lots to be selected.
 
 ---
 
-# 8. Frontend Must Not
+## 10. Runtime UI rules
 
-- manually mutate inventory quantities
-- optimistically mark output lots available
-- manually progress `lot_process_steps`
-- trust client-side `createdBy`, `createdAt`, `checkedBy`, `checkedAt`, or `approvedBy`
-- make `under_qaqc`, `consumed`, `scrapped`, or `rejected` lots selectable as inputs
-- retry process execution create blindly after a network error without checking server state
+Frontend must:
 
-Audit fields and timestamps for VIR, GRN, and QA/QC flows are derived from backend auth context and backend time.
+- explicitly ask operator for quantity
+- show available quantity clearly
+- refresh backend truth after mutations
+- display backend manufacturing errors clearly
+- treat workspace as existing execution only
+
+Frontend must not:
+
+- auto-start execution on workspace load
+- auto-consume full inventory quantity
+- manually mutate inventory
+- manually advance workflow
+- optimistically release QA/QC inventory
+- trust frontend audit fields
 
 ---
 
-# 9. Known v1 Limitations
+## 11. Audit integrity rules
+
+Audit metadata is backend-owned.
+
+Frontend must not trust or persist:
+
+```text
+createdBy
+createdAt
+updatedBy
+updatedAt
+checkedBy
+checkedAt
+approvedBy
+approvedAt
+verifiedBy
+verifiedAt
+```
+
+Backend derives:
+
+- authenticated user
+- timestamps
+- workflow actors
+
+from auth context and backend time.
+
+---
+
+## 12. Current v1 limitations
+
+Current implemented limitations:
 
 - one output item only
 - no recursive lineage graph
 - no reservation layer
-- basic inventory eligibility only
-- `process_executions` still requires the `lot_process_step_id` bridge internally
-- legacy request shapes remain supported during frontend migration
+- no progressive consumption
+- no multi-output completion
+- no advanced inventory allocation
+- no create process definition API yet
+- `process_execution` still internally bridges through `lot_process_step_id`
+- legacy request shapes still temporarily supported
+
+---
+
+## 13. AI implementation rules
+
+Before implementing runtime UI, read:
+
+```text
+docs/frontend/process-runtime-flow.md
+docs/frontend/01-manufacturing-runtime-ui-contract.md
+docs/frontend/pages/process-board-page.md
+docs/frontend/pages/process-workspace-page.md
+docs/frontend/hooks/use-process-execution.md
+```
+
+Rules:
+
+- keep docs concise and AI-readable
+- keep backend as runtime truth
+- do not silently change runtime flow
+- do not duplicate backend manufacturing logic
+- report API/contract mismatches clearly
+
+---
+
+## 14. Short locked summary
+
+```text
+- Process execution creation consumes inventory immediately.
+- Workspace operates existing executions only.
+- Save Progress only updates runtime form data.
+- Complete Process creates output inventory.
+- QA/QC-gated output stays under_qaqc until approval.
+- Only available inventory can be consumed.
+- Backend owns workflow, inventory, lineage, QA/QC, and audit truth.
+```

@@ -1,8 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { fetchLotProcessStepById } from '@/api/manufacturing/lotProcessSteps.api';
 import { fetchProcessDefinitionById } from '@/api/manufacturing/processDefinitions.api';
-import { fetchProcessExecutionsByStepId } from '@/api/manufacturing/processExecutions.api';
+import {
+  completeProcessExecution,
+  createProcessExecution,
+  fetchProcessExecutionInputs,
+  fetchProcessExecutionOutputs,
+  fetchProcessExecutionsByStepId,
+  updateProcessExecutionProgress,
+  type CompleteProcessExecutionPayload,
+  type CreateProcessExecutionPayload,
+  type ProcessExecutionDto,
+  type ProcessExecutionInputDto,
+  type ProcessExecutionOutputDto,
+  type UpdateProcessExecutionProgressPayload,
+} from '@/api/manufacturing/processExecutions.api';
 import type {
   ProcessFieldValue,
   ProcessFormSchema,
@@ -111,12 +124,21 @@ const temporaryActivity: ProcessActivityItem[] = [
 type ProcessExecutionState = {
   processStep: LotProcessStepCard;
   execution?: ProcessExecution;
+  rawExecution?: ProcessExecutionDto;
   schema: ProcessFormSchema;
   initialValues: Record<string, ProcessFieldValue>;
   activity: ProcessActivityItem[];
   isLoading: boolean;
   error?: string;
   isUsingMockSchema: boolean;
+  
+  // Runtime Contract Added State
+  inputs: ProcessExecutionInputDto[];
+  outputs: ProcessExecutionOutputDto[];
+  loading: boolean;
+  submitting: boolean;
+  savingProgress: boolean;
+  completing: boolean;
 };
 
 export function useProcessExecution(stepId?: string) {
@@ -126,73 +148,164 @@ export function useProcessExecution(stepId?: string) {
     initialValues: temporaryInitialValues,
     activity: temporaryActivity,
     isLoading: Boolean(stepId),
+    loading: Boolean(stepId),
     isUsingMockSchema: true,
+    inputs: [],
+    outputs: [],
+    submitting: false,
+    savingProgress: false,
+    completing: false,
   });
+
   const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    if (!stepId) {
-      return;
-    }
+  const resetError = useCallback(() => {
+    setState((s) => ({ ...s, error: undefined }));
+  }, []);
 
-    const requestedStepId = stepId;
-    let isMounted = true;
+  const loadProcessExecution = useCallback(async () => {
+    if (!stepId) return;
+    
+    setState((s) => ({ ...s, isLoading: true, loading: true, error: undefined }));
+    try {
+      const step = await fetchLotProcessStepById(stepId);
+      const [definition, executions] = await Promise.all([
+        fetchProcessDefinitionById(String(step.process_definition_id)),
+        fetchProcessExecutionsByStepId(stepId).catch(() => []),
+      ]);
+      const latestExecution = executions[0];
 
-    async function loadProcessExecution() {
-      setState((currentState) => ({ ...currentState, isLoading: true, error: undefined }));
+      setState((s) => ({
+        ...s,
+        processStep: mapStepDetailToCard(step, definition, latestExecution),
+        execution: latestExecution ? mapProcessExecution(latestExecution, step.process_code) : undefined,
+        rawExecution: latestExecution,
+        schema: mapProcessDefinitionSchema(definition, temporarySchema),
+        initialValues: latestExecution ? mapExecutionValues(latestExecution) : {},
+        activity: mapExecutionActivity(step, executions),
+        isLoading: false,
+        loading: false,
+        isUsingMockSchema: !definition.defaultFormSchema,
+      }));
 
-      try {
-        const step = await fetchLotProcessStepById(requestedStepId);
-        const [definition, executions] = await Promise.all([
-          fetchProcessDefinitionById(String(step.process_definition_id)),
-          fetchProcessExecutionsByStepId(requestedStepId).catch(() => []),
-        ]);
-        const latestExecution = executions[0];
+      // If we have an execution, optionally fetch its inputs and outputs
+      if (latestExecution?.id) {
+        fetchProcessExecutionInputs(String(latestExecution.id))
+          .then((inputs) => setState((s) => ({ ...s, inputs })))
+          .catch(console.error);
 
-        if (!isMounted) {
-          return;
-        }
-
-        setState({
-          processStep: mapStepDetailToCard(step, definition, latestExecution),
-          execution: latestExecution
-            ? mapProcessExecution(latestExecution, step.process_code)
-            : undefined,
-          schema: mapProcessDefinitionSchema(definition, temporarySchema),
-          initialValues: latestExecution ? mapExecutionValues(latestExecution) : {},
-          activity: mapExecutionActivity(step, executions),
-          isLoading: false,
-          isUsingMockSchema: !definition.defaultFormSchema,
-        });
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
-        setState({
-          processStep: { ...temporaryWorkspaceStep, stepId: requestedStepId },
-          schema: temporarySchema,
-          initialValues: temporaryInitialValues,
-          activity: temporaryActivity,
-          isLoading: false,
-          error: error instanceof Error ? error.message : 'Failed to load process execution',
-          isUsingMockSchema: true,
-        });
+        fetchProcessExecutionOutputs(String(latestExecution.id))
+          .then((outputs) => setState((s) => ({ ...s, outputs })))
+          .catch(console.error);
       }
+    } catch (error) {
+      setState((s) => ({
+        ...s,
+        processStep: { ...temporaryWorkspaceStep, stepId },
+        schema: temporarySchema,
+        initialValues: temporaryInitialValues,
+        activity: temporaryActivity,
+        isLoading: false,
+        loading: false,
+        error: error instanceof Error ? error.message : 'Failed to load process execution',
+        isUsingMockSchema: true,
+      }));
     }
+  }, [stepId]);
 
+  useEffect(() => {
     void loadProcessExecution();
+  }, [loadProcessExecution, refreshKey]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [refreshKey, stepId]);
+  const refreshExecution = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
+
+  const fetchInputs = useCallback(async () => {
+    if (!state.rawExecution?.id) return;
+    try {
+      const inputs = await fetchProcessExecutionInputs(String(state.rawExecution.id));
+      setState((s) => ({ ...s, inputs }));
+    } catch (err) {
+      setState((s) => ({ ...s, error: err instanceof Error ? err.message : 'Failed to fetch inputs' }));
+    }
+  }, [state.rawExecution?.id]);
+
+  const fetchOutputs = useCallback(async () => {
+    if (!state.rawExecution?.id) return;
+    try {
+      const outputs = await fetchProcessExecutionOutputs(String(state.rawExecution.id));
+      setState((s) => ({ ...s, outputs }));
+    } catch (err) {
+      setState((s) => ({ ...s, error: err instanceof Error ? err.message : 'Failed to fetch outputs' }));
+    }
+  }, [state.rawExecution?.id]);
+
+  const createExecution = useCallback(
+    async (payload: CreateProcessExecutionPayload) => {
+      setState((s) => ({ ...s, submitting: true, error: undefined }));
+      try {
+        const result = await createProcessExecution(payload);
+        setState((s) => ({ ...s, rawExecution: result, submitting: false }));
+        refreshExecution();
+        return result;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Create execution failed';
+        setState((s) => ({ ...s, error: msg, submitting: false }));
+        throw err;
+      }
+    },
+    [refreshExecution]
+  );
+
+  const saveProgress = useCallback(
+    async (payload: UpdateProcessExecutionProgressPayload) => {
+      if (!state.rawExecution?.id) throw new Error('No active process execution to update');
+      setState((s) => ({ ...s, savingProgress: true, error: undefined }));
+      try {
+        const result = await updateProcessExecutionProgress(String(state.rawExecution.id), payload);
+        setState((s) => ({ ...s, rawExecution: result, savingProgress: false }));
+        refreshExecution();
+        return result;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Save progress failed';
+        setState((s) => ({ ...s, error: msg, savingProgress: false }));
+        throw err;
+      }
+    },
+    [state.rawExecution?.id, refreshExecution]
+  );
+
+  const completeExecution = useCallback(
+    async (payload: CompleteProcessExecutionPayload) => {
+      if (!state.rawExecution?.id) throw new Error('No active process execution to complete');
+      setState((s) => ({ ...s, completing: true, error: undefined }));
+      try {
+        const result = await completeProcessExecution(String(state.rawExecution.id), payload);
+        setState((s) => ({ ...s, rawExecution: result, completing: false }));
+        refreshExecution();
+        return result;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Complete execution failed';
+        setState((s) => ({ ...s, error: msg, completing: false }));
+        throw err;
+      }
+    },
+    [state.rawExecution?.id, refreshExecution]
+  );
 
   return useMemo(
     () => ({
       ...state,
-      refresh: () => setRefreshKey((currentKey) => currentKey + 1),
+      refresh: refreshExecution,
+      refreshExecution,
+      createExecution,
+      saveProgress,
+      completeExecution,
+      fetchInputs,
+      fetchOutputs,
+      resetError,
     }),
-    [state]
+    [state, refreshExecution, createExecution, saveProgress, completeExecution, fetchInputs, fetchOutputs, resetError]
   );
 }

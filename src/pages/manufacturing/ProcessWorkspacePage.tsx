@@ -3,16 +3,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-import {
-  completeProcessExecution,
-  createProcessExecution,
-  updateProcessExecutionProgress,
-} from '@/api/manufacturing/processExecutions.api';
+import type { CompleteProcessExecutionPayload } from '@/api/manufacturing/processExecutions.api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { CompleteProcessDialog } from '@/features/manufacturing/components/CompleteProcessDialog';
+import { ConsumedInputsList } from '@/features/manufacturing/components/ConsumedInputsList';
 import { ProcessActionBar } from '@/features/manufacturing/components/ProcessActionBar';
 import { ProcessActivityTimeline } from '@/features/manufacturing/components/ProcessActivityTimeline';
 import { ProcessWorkspaceHeader } from '@/features/manufacturing/components/ProcessWorkspaceHeader';
+import { ProducedOutputsList } from '@/features/manufacturing/components/ProducedOutputsList';
 import { DynamicProcessForm } from '@/features/manufacturing/dynamic-form/DynamicProcessForm';
 import { useProcessExecution } from '@/features/manufacturing/hooks/useProcessExecution';
 import type { ProcessFieldValue } from '@/features/manufacturing/types/formSchema.types';
@@ -30,101 +30,65 @@ export function ProcessWorkspacePage() {
     isLoading,
     error,
     isUsingMockSchema,
-    refresh,
+    inputs,
+    outputs,
+    loading,
+    savingProgress,
+    completing,
+    saveProgress,
+    completeExecution,
+    resetError,
   } = useProcessExecution(stepId);
-  const [latestValues, setLatestValues] =
-    useState<Record<string, ProcessFieldValue>>(initialValues);
-  const [isSaving, setIsSaving] = useState(false);
+  
+  const [latestValues, setLatestValues] = useState<Record<string, ProcessFieldValue>>(initialValues);
+  const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
 
   useEffect(() => {
     setLatestValues(initialValues);
   }, [initialValues]);
 
   const handleSaveProgress = async () => {
-    if (!stepId) {
-      return;
-    }
-
-    if (execution) {
-      setIsSaving(true);
-      try {
-        await updateProcessExecutionProgress(execution.executionId, {
-          quantityIn: getNumericValue(latestValues, ['quantityIn', 'quantity_in']),
-          formData: latestValues,
-          equipmentUsed: getRecordValue(latestValues.equipmentUsed),
-          operatorNotes: getStringValue(latestValues.operatorNotes),
-        });
-        toast.success('Progress saved.');
-        refresh();
-      } catch (saveError) {
-        toast.error(saveError instanceof Error ? saveError.message : 'Failed to save progress');
-      } finally {
-        setIsSaving(false);
-      }
-      return;
-    }
-
-    setIsSaving(true);
+    if (!stepId || !execution) return;
+    
+    resetError();
     try {
-      await createProcessExecution({
-        lotProcessStepId: Number(stepId),
+      await saveProgress({
         quantityIn: getNumericValue(latestValues, ['quantityIn', 'quantity_in']),
         formData: latestValues,
         equipmentUsed: getRecordValue(latestValues.equipmentUsed),
         operatorNotes: getStringValue(latestValues.operatorNotes),
       });
-      toast.success('Process execution started and progress saved.');
-      refresh();
-    } catch (saveError) {
-      toast.error(saveError instanceof Error ? saveError.message : 'Failed to save progress');
-    } finally {
-      setIsSaving(false);
+      toast.success('Progress saved.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save progress');
     }
   };
 
-  const handleCompleteStage = () => {
-    toast('Stage-level completion is waiting for backend schema support.');
-    console.info(
-      'TODO Complete Stage requires internal stage schema/API support',
-      processStep.stepId
-    );
-  };
-
-  const handleCompleteProcess = async () => {
-    if (!stepId) {
-      return;
-    }
-
-    if (!execution) {
-      toast.error('Save progress before completing this process.');
-      return;
-    }
-
-    setIsSaving(true);
+  const handleCompleteProcess = async (payload: CompleteProcessExecutionPayload) => {
+    if (!stepId || !execution) return;
+    
+    resetError();
     try {
-      await completeProcessExecution(execution.executionId, {
-        quantityOut: getNumericValue(latestValues, [
-          'quantityOut',
-          'quantity_out',
-          'outputQuantity',
-        ]),
-        quantityLoss: getNumericValue(latestValues, ['quantityLoss', 'quantity_loss']) ?? 0,
-        lossReason: getStringValue(latestValues.lossReason),
+      await completeExecution({
+        ...payload,
         formData: latestValues,
         equipmentUsed: getRecordValue(latestValues.equipmentUsed),
         operatorNotes: getStringValue(latestValues.operatorNotes),
         supervisorNotes: getStringValue(latestValues.supervisorNotes),
       });
-      toast.success('Process completed. Workspace refreshed.');
-      refresh();
-    } catch (completeError) {
-      toast.error(
-        completeError instanceof Error ? completeError.message : 'Failed to complete process'
-      );
-    } finally {
-      setIsSaving(false);
+      toast.success('Process completed.');
+      setIsCompleteDialogOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to complete process');
     }
   };
+
+  const handleCompleteStage = () => {
+    toast('Stage-level completion is waiting for backend schema support.');
+  };
+
+  const isAwaitingQaQc = processStep.status === 'qa_pending' || outputs.some((o) => o.status === 'under_qaqc');
+  const isReady = !isLoading && !loading;
 
   return (
     <section className="space-y-6 pb-24">
@@ -134,7 +98,7 @@ export function ProcessWorkspacePage() {
             Process workspace
           </p>
           {isUsingMockSchema ? <Badge variant="outline">Temporary mock schema</Badge> : null}
-          {isLoading ? <Badge variant="secondary">Loading</Badge> : null}
+          {!isReady ? <Badge variant="secondary">Loading</Badge> : null}
         </div>
         <Button
           type="button"
@@ -149,27 +113,66 @@ export function ProcessWorkspacePage() {
       </div>
 
       {error ? (
-        <div className="rounded-md border border-destructive/40 bg-card p-4 text-sm text-destructive">
-          Real manufacturing API read failed. Showing temporary fallback schema. {error}
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+          Error: {error}
         </div>
       ) : null}
 
-      <ProcessWorkspaceHeader processStep={processStep} />
+      {isAwaitingQaQc && (
+        <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-4 text-sm text-yellow-600 dark:text-yellow-500 font-medium">
+          This process is awaiting QA/QC approval. Outputs are currently Under QA/QC.
+        </div>
+      )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <DynamicProcessForm
-          schema={schema}
-          initialValues={initialValues}
-          onChange={setLatestValues}
-        />
-        <ProcessActivityTimeline items={activity} />
-      </div>
+      {isReady && !execution ? (
+        <Card className="border-border bg-card">
+          <CardContent className="p-8 text-center space-y-4">
+            <p className="text-xl font-semibold text-foreground">No active execution found</p>
+            <p className="text-muted-foreground">
+              No process job has been started for this step. Please start it from the process board.
+            </p>
+            <Button
+              variant="default"
+              onClick={() => navigate(manufacturingRoutes.boardForProcess(processStep.processCode))}
+            >
+              Go to Process Board
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
-      <ProcessActionBar
-        onSaveProgress={handleSaveProgress}
-        onCompleteStage={handleCompleteStage}
-        onCompleteProcess={handleCompleteProcess}
-        isSaving={isSaving}
+      {execution && (
+        <>
+          <ProcessWorkspaceHeader processStep={processStep} />
+          
+          <ConsumedInputsList inputs={inputs} />
+          <ProducedOutputsList outputs={outputs} />
+          
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <DynamicProcessForm
+              schema={schema}
+              initialValues={initialValues}
+              onChange={setLatestValues}
+            />
+            <ProcessActivityTimeline items={activity} />
+          </div>
+
+          <ProcessActionBar
+            onSaveProgress={handleSaveProgress}
+            onCompleteStage={handleCompleteStage}
+            onCompleteProcess={() => setIsCompleteDialogOpen(true)}
+            isSaving={savingProgress}
+          />
+        </>
+      )}
+
+      <CompleteProcessDialog
+        open={isCompleteDialogOpen}
+        onOpenChange={setIsCompleteDialogOpen}
+        onConfirm={handleCompleteProcess}
+        isCompleting={completing}
+        unitOfMeasure={processStep.unit}
+        targetProductId={1}
       />
     </section>
   );

@@ -3,10 +3,10 @@ import type { ProcessStatus } from '@/features/manufacturing/types/process.types
 export function getProcessStatusLabel(status: ProcessStatus): string {
   const labels: Record<ProcessStatus, string> = {
     pending: 'Pending',
-    ready: 'Ready',
-    in_progress: 'In progress',
+    ready: 'Ready to Start',
+    in_progress: 'In Progress',
     blocked: 'Blocked',
-    qa_pending: 'QA pending',
+    qa_pending: 'Awaiting QA/QC',
     completed: 'Completed',
   };
 

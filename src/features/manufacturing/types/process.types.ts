@@ -24,9 +24,12 @@ export type LotProcessStepCard = {
   batchNumber: string;
   lotId?: string;
   lotNumber: string;
+  productId?: string;
   productName: string;
   quantity: number;
   unit: string;
+  executionQuantityIn?: number;
+  executionQuantityOut?: number;
   status: ProcessStatus;
   currentStage: string;
   lastUpdatedBy: string;
