@@ -25,6 +25,13 @@ type ListDocumentsResponse = {
   data?: ListDocumentsData;
 } & ListDocumentsData;
 
+type UploadDocumentsResponse =
+  | {
+      data?: DocumentCollection | ListDocumentsData;
+      documents?: DocumentCollection;
+    }
+  | DocumentUpload[];
+
 type SignedUrlResponse = {
   url: string;
 };
@@ -41,6 +48,14 @@ const unwrapData = <T>(payload: ApiEnvelope<T> | T): T => {
   return payload as T;
 };
 
+const normalizeDocuments = (value?: DocumentCollection): DocumentUpload[] => {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+};
+
+const isListDocumentsData = (value: unknown): value is ListDocumentsData =>
+	!!value && typeof value === 'object' && ('document' in value || 'documents' in value);
+
 export async function uploadDocuments(params: UploadDocumentsParams): Promise<DocumentUpload[]> {
   const formData = new FormData();
   formData.append('module', params.module);
@@ -54,16 +69,21 @@ export async function uploadDocuments(params: UploadDocumentsParams): Promise<Do
     formData.append('files', file);
   });
 
-  const resp = await api.post<ApiEnvelope<DocumentUpload[]> | DocumentUpload[]>(
-    '/documents/upload',
-    formData,
-    {
-      withCredentials: true,
-    }
-  );
+  const resp = await api.post<UploadDocumentsResponse>('/documents/upload', formData, {
+    withCredentials: true,
+  });
 
-  const payload = unwrapData<DocumentUpload[]>(resp.data);
-  return Array.isArray(payload) ? payload : [];
+  if (Array.isArray(resp.data)) return resp.data;
+
+  const nestedData = resp.data.data;
+  if (Array.isArray(nestedData)) return nestedData;
+
+  if (isListDocumentsData(nestedData)) {
+    const nestedDocuments = normalizeDocuments(nestedData.documents);
+    if (nestedDocuments.length > 0) return nestedDocuments;
+  }
+
+  return normalizeDocuments(resp.data.documents);
 }
 
 export async function listDocuments(params: ListDocumentsParams): Promise<DocumentUpload[]> {
@@ -74,11 +94,6 @@ export async function listDocuments(params: ListDocumentsParams): Promise<Docume
     },
     withCredentials: true,
   });
-
-  const normalizeDocuments = (value?: DocumentCollection): DocumentUpload[] => {
-    if (!value) return [];
-    return Array.isArray(value) ? value : [value];
-  };
 
   const nestedDocument = normalizeDocuments(resp.data.data?.document);
   if (nestedDocument.length > 0) return nestedDocument;

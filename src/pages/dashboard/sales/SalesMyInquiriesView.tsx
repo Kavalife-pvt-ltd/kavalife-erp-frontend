@@ -337,7 +337,7 @@ const SalesMyInquiriesView: React.FC = () => {
               [
                 { id: 'all', label: 'All' },
                 { id: 'active', label: 'Active' },
-                { id: 'rejected', label: 'Rejected' },
+                { id: 'rejected', label: 'Returned' },
                 { id: 'done', label: 'Done' },
               ] as const
             ).map((t) => (

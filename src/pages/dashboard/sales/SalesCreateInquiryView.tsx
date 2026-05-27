@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
+import imageCompression from 'browser-image-compression';
 import { FileText, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -43,6 +44,41 @@ const initialFormState: FormState = {
 };
 
 type SubmitPhase = 'idle' | 'creating' | 'uploading';
+
+const maxUploadFileSizeBytes = 5 * 1024 * 1024;
+const compressibleImageTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
+
+const compressionOptions = {
+  maxSizeMB: 1,
+  maxWidthOrHeight: 1600,
+  useWebWorker: true,
+};
+
+const isCompressibleImage = (file: File) => compressibleImageTypes.has(file.type.toLowerCase());
+
+const compressDocumentFiles = async (files: File[]) =>
+  Promise.all(
+    files.map(async (file) => {
+      if (!isCompressibleImage(file)) return file;
+
+      try {
+        const compressed = await imageCompression(file, compressionOptions);
+        return new File([compressed], file.name, {
+          type: compressed.type || file.type,
+          lastModified: file.lastModified,
+        });
+      } catch (error: unknown) {
+        console.error('Document image compression failed, uploading original file:', error);
+        return file;
+      }
+    })
+  );
 
 const SalesCreateInquiryView: React.FC = () => {
   const { authUser } = useAuthContext();
@@ -120,7 +156,17 @@ const SalesCreateInquiryView: React.FC = () => {
   }, []);
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedFiles(Array.from(event.target.files ?? []));
+    const files = Array.from(event.target.files ?? []);
+    const validFiles = files.filter((file) => {
+      if (file.size <= maxUploadFileSizeBytes) return true;
+      toast.error(`${file.name} exceeds 5MB limit`);
+      return false;
+    });
+
+    setSelectedFiles(validFiles);
+    if (validFiles.length !== files.length && fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   }, []);
 
   const removeSelectedFile = useCallback((indexToRemove: number) => {
@@ -150,11 +196,12 @@ const SalesCreateInquiryView: React.FC = () => {
       if (selectedFiles.length > 0) {
         try {
           setSubmitPhase('uploading');
+          const filesForUpload = await compressDocumentFiles(selectedFiles);
           await uploadDocuments({
             module: 'sales_po',
             entityId: createdPo.id,
             documentType: 'customer_coa',
-            files: selectedFiles,
+            files: filesForUpload,
           });
         } catch (uploadError: unknown) {
           console.error('CreateInquiry document upload error:', uploadError);
