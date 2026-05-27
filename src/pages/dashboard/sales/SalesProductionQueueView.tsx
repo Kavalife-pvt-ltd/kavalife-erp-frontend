@@ -122,7 +122,6 @@ const SalesProductionQueueView: React.FC = () => {
             onSubmit: async ({ note }) => {
               const updated = await updateSalesPOStatus(selectedPO.id, {
                 toStatus: 'production_completed',
-                sendTo: 'admin',
                 newComments: note,
               });
 

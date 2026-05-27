@@ -6,7 +6,6 @@ export type SalesQueue = 'sales' | 'admin' | 'purchase' | 'production';
 export interface ListSalesPOParams {
   status?: SalesPOStatus;
   salesRepId?: number;
-  productName?: string;
   sendTo?: SalesQueue;
 }
 
@@ -20,7 +19,6 @@ export async function listSalesPO(params: ListSalesPOParams = {}): Promise<Sales
     params: {
       ...(params.status ? { status: params.status } : {}),
       ...(typeof params.salesRepId === 'number' ? { salesRepId: params.salesRepId } : {}),
-      ...(params.productName?.trim() ? { productName: params.productName.trim() } : {}),
       ...(params.sendTo ? { sendTo: params.sendTo } : {}),
     },
   });
@@ -38,6 +36,7 @@ export type UpdateSalesPOStatusRequest = {
   toStatus: SalesPOStatus;
   newQuantity?: number;
   newAskingPrice?: number;
+  purchasePrice?: number;
   newComments?: string;
   rejectionReason?: string;
   fulfillmentType?: 'purchase' | 'production';

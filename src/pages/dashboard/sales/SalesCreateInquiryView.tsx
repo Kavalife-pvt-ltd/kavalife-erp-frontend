@@ -10,7 +10,6 @@ type FormState = {
   productName: string; // ✅ text now
   companyName: string;
   companyAddress: string;
-  coaUrl: string;
   contactName: string;
   contactNumber: string;
   contactEmail: string;
@@ -24,13 +23,10 @@ type FormState = {
   expectedDeliveryDate: string; // yyyy-mm-dd
 };
 
-const QUANTITY_UNITS = ['kg', 'L', 'pcs'] as const;
-
 const initialFormState: FormState = {
   productName: '',
   companyName: '',
   companyAddress: '',
-  coaUrl: '',
   contactName: '',
   contactNumber: '',
   contactEmail: '',
@@ -66,7 +62,6 @@ const SalesCreateInquiryView: React.FC = () => {
   const validate = useCallback((): string | null => {
     if (!form.productName.trim()) return 'Product is required';
     if (!form.companyName.trim()) return 'Company name is required';
-    if (!form.companyAddress.trim()) return 'Company address is required';
 
     const q = Number(form.quantity);
     if (!form.quantity.trim() || Number.isNaN(q) || q <= 0) return 'Valid quantity is required';
@@ -94,8 +89,7 @@ const SalesCreateInquiryView: React.FC = () => {
     return {
       productName: form.productName.trim(),
       companyName: form.companyName.trim(),
-      companyAddress: form.companyAddress.trim(),
-      coaUrl: form.coaUrl.trim() || undefined,
+      companyAddress: form.companyAddress.trim() || 'Not provided',
       companyContactName: form.contactName.trim() || undefined,
       companyContactNumber: form.contactNumber.trim() || undefined,
       companyContactEmail: form.contactEmail.trim() || undefined,
@@ -204,27 +198,12 @@ const SalesCreateInquiryView: React.FC = () => {
 
           {/* Company Address */}
           <div>
-            <label className="block text-sm font-medium text-primaryText">
-              Company Address<span className="text-red-500">*</span>
-            </label>
+            <label className="block text-sm font-medium text-primaryText">Company Address</label>
             <textarea
               name="companyAddress"
               value={form.companyAddress}
               onChange={handleChange}
               rows={3}
-              className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </div>
-
-          {/* COA URL */}
-          <div>
-            <label className="block text-sm font-medium text-primaryText">COA (URL)</label>
-            <input
-              type="url"
-              name="coaUrl"
-              value={form.coaUrl}
-              onChange={handleChange}
-              placeholder="https://..."
               className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
@@ -325,18 +304,14 @@ const SalesCreateInquiryView: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-primaryText">Unit</label>
-              <select
+              <input
+                type="text"
                 name="quantityUnit"
                 value={form.quantityUnit}
                 onChange={handleChange}
+                placeholder="kg, L, pcs..."
                 className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-              >
-                {QUANTITY_UNITS.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>

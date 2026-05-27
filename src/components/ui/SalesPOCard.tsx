@@ -1,28 +1,12 @@
 import React from 'react';
 import type { SalesPO } from '@/types/sales';
 import clsx from 'clsx';
+import { prettyStatus } from '@/utils/salesStatus';
 
 type Props = {
   po: SalesPO;
   maskCompany?: boolean;
   onClick?: () => void;
-};
-
-const statusLabelMap: Record<string, string> = {
-  quote_requested: 'Quote Requested',
-  quote_admin_approved: 'Admin Approved',
-  quote_sent_to_client: 'Sent to Client',
-  client_negotiation: 'Negotiation',
-  client_approved: 'Client Approved',
-  client_rejected: 'Client Rejected',
-  final_admin_approved: 'Final Admin Approved',
-  routed_to_purchase: 'Routed to Purchase',
-  routed_to_production: 'Routed to Production',
-  admin_rejected: 'Admin Rejected',
-  cancelled: 'Cancelled',
-  purchase_completed: 'Purchase Completed',
-  production_completed: 'Production Completed',
-  closed: 'Closed',
 };
 
 const statusColorClass = (status: string) =>
@@ -35,22 +19,29 @@ const statusColorClass = (status: string) =>
     client_rejected: 'bg-red-100 text-red-800',
     final_admin_approved: 'bg-emerald-100 text-emerald-800',
     routed_to_purchase: 'bg-sky-100 text-sky-800',
+    purchase_priced: 'bg-amber-100 text-amber-800',
+    purchase_approved: 'bg-emerald-100 text-emerald-800',
+    purchase_completed: 'bg-emerald-100 text-emerald-800',
     routed_to_production: 'bg-purple-100 text-purple-800',
+    production_completed: 'bg-emerald-100 text-emerald-800',
     admin_rejected: 'bg-red-100 text-red-800',
     cancelled: 'bg-slate-200 text-slate-700',
-    purchase_completed: 'bg-emerald-100 text-emerald-800',
-    production_completed: 'bg-emerald-100 text-emerald-800',
     closed: 'bg-slate-200 text-slate-700',
   })[status] ?? 'bg-slate-100 text-slate-700';
 
 const isPOStage = (po: SalesPO) =>
   po.status === 'final_admin_approved' || po.status === 'closed' || !!po.poNumber;
 
+const getTicketNumberLabel = (po: SalesPO) => {
+  if (po.poNumber) return `PO #${po.poNumber}`;
+  if (po.inquiryNumber) return `Inquiry #${po.inquiryNumber}`;
+  return `#${po.id}`;
+};
+
 const SalesPOCard: React.FC<Props> = ({ po, maskCompany = false, onClick }) => {
-  const poNumber = po.poNumber ?? null;
   const isPO = isPOStage(po);
 
-  const statusLabel = statusLabelMap[po.status] ?? po.status;
+  const statusLabel = prettyStatus(po.status);
 
   const createdDate = po.requestDate ? new Date(po.requestDate).toLocaleDateString() : '';
   const dueDate = po.expectedDeliveryDate
@@ -60,7 +51,7 @@ const SalesPOCard: React.FC<Props> = ({ po, maskCompany = false, onClick }) => {
   const companyName = maskCompany ? 'Confidential Client' : po.companyName;
   const companyAddress = maskCompany ? 'Hidden for this view' : po.companyAddress;
 
-  const productName = (po as unknown as { productName?: string }).productName?.trim() || '—';
+  const productName = po.productName?.trim() || '—';
 
   const Wrapper: React.ElementType = onClick ? 'button' : 'article';
 
@@ -76,9 +67,7 @@ const SalesPOCard: React.FC<Props> = ({ po, maskCompany = false, onClick }) => {
     >
       <header className="flex items-start justify-between gap-2">
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold text-primaryText">
-            {poNumber ? `PO #${poNumber}` : 'Inquiry'}
-          </h3>
+          <h3 className="text-sm font-semibold text-primaryText">{getTicketNumberLabel(po)}</h3>
           <p className="text-xs text-primaryText/70">{productName}</p>
         </div>
 
@@ -113,9 +102,20 @@ const SalesPOCard: React.FC<Props> = ({ po, maskCompany = false, onClick }) => {
 
         {isPO && po.askingPrice != null && (
           <div className="mt-1">
-            <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Final Cost</p>
+            <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Asking Price</p>
             <p className="text-xs font-semibold text-primaryText">
               ₹{Number(po.askingPrice).toLocaleString('en-IN')}
+            </p>
+          </div>
+        )}
+
+        {po.purchasePrice != null && (
+          <div className="mt-1">
+            <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+              Purchase Price
+            </p>
+            <p className="text-xs font-semibold text-primaryText">
+              ₹{Number(po.purchasePrice).toLocaleString('en-IN')}
             </p>
           </div>
         )}

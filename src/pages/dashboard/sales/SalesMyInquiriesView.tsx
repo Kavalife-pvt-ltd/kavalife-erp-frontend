@@ -7,6 +7,7 @@ import { Loader } from '@/components/ui/Loader';
 import SalesPOCard from '@/components/ui/SalesPOCard';
 import { listSalesPO, getSalesPOStatusLog } from '@/api/sales';
 import type { SalesPO, SalesPOStatusLog } from '@/types/sales';
+import { prettyStatus, prettyTransition } from '@/utils/salesStatus';
 
 type TimelineEntry = {
   id: number;
@@ -18,6 +19,12 @@ type TimelineEntry = {
 type DetailsModalProps = {
   po: SalesPO;
   onClose: () => void;
+};
+
+const getPrimaryNumberLabel = (po: SalesPO) => {
+  if (po.poNumber) return `PO #${po.poNumber}`;
+  if (po.inquiryNumber) return `Inquiry #${po.inquiryNumber}`;
+  return `#${po.id}`;
 };
 
 const DetailsModal: React.FC<DetailsModalProps> = ({ po, onClose }) => {
@@ -70,7 +77,7 @@ const DetailsModal: React.FC<DetailsModalProps> = ({ po, onClose }) => {
 
     return logs.map((log) => ({
       id: log.id,
-      label: `${log.fromStatus ? `${log.fromStatus} → ` : ''}${log.toStatus}`,
+      label: prettyTransition(log.fromStatus, log.toStatus),
       at: new Date(log.changedAt).toLocaleString(),
       note: log.note ?? undefined,
     }));
@@ -82,8 +89,11 @@ const DetailsModal: React.FC<DetailsModalProps> = ({ po, onClose }) => {
         <header className="mb-3 flex items-start justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold text-primaryText">
-              Inquiry Details – {po.poNumber ?? 'No PO number yet'}
+              Inquiry Details – {getPrimaryNumberLabel(po)}
             </h2>
+            {po.poNumber && po.inquiryNumber ? (
+              <p className="text-xs text-primaryText/70">Inquiry #{po.inquiryNumber}</p>
+            ) : null}
             <p className="text-xs text-primaryText/70">
               {po.companyName} • {po.quantity} {po.quantityUnit ?? ''}{' '}
               {po.purity ? `• ${po.purity}` : ''}
@@ -174,7 +184,7 @@ const DetailsModal: React.FC<DetailsModalProps> = ({ po, onClose }) => {
           ) : (
             <ol className="space-y-1 text-xs text-primaryText/80">
               <li className="flex justify-between gap-2 rounded-lg bg-background px-2 py-1">
-                <span>Created ({po.status})</span>
+                <span>Created ({prettyStatus(po.status)})</span>
                 <span className="text-[11px] text-primaryText/60">{createdDate || '—'}</span>
               </li>
               {timeline.map((item) => (
