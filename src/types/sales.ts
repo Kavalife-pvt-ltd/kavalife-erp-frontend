@@ -14,6 +14,7 @@ export type SalesPOStatus =
   | 'admin_rejected'
   | 'purchase_completed'
   | 'production_completed'
+  | 'production_approved'
   | 'closed'
   | 'purchase_approved'
   | 'cancelled';
@@ -25,9 +26,9 @@ export type SalesPOFulfillmentType = 'purchase' | 'production';
 export interface SalesPO {
   sendTo: string;
   id: number;
+  inquiryNumber?: string | null;
   poNumber?: string | null;
 
-  productId: number;
   productName?: string | null;
 
   companyName: string;
@@ -88,8 +89,7 @@ export interface SalesPOStatusLog {
 export interface CreateSalesPORequest {
   productName: string;
   companyName: string;
-  companyAddress: string;
-  coaUrl?: string;
+  companyAddress?: string;
   companyContactName?: string;
   companyContactNumber?: string;
   companyContactEmail?: string;

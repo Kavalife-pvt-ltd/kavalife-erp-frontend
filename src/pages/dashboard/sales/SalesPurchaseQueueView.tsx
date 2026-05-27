@@ -59,15 +59,14 @@ const SalesPurchaseQueueView: React.FC = () => {
     };
   }, [canAccess]);
 
-  // optional: split those that already have price vs need pricing
-  const { needsPricing, priced } = useMemo(() => {
+  const { needsPricing, readyToComplete } = useMemo(() => {
     const a: SalesPO[] = [];
     const b: SalesPO[] = [];
     for (const po of data) {
-      if (po.askingPrice === null || po.askingPrice === undefined) a.push(po);
-      else b.push(po);
+      if (po.status === 'routed_to_purchase') a.push(po);
+      if (po.status === 'purchase_approved') b.push(po);
     }
-    return { needsPricing: a, priced: b };
+    return { needsPricing: a, readyToComplete: b };
   }, [data]);
 
   if (!canAccess) {
@@ -132,19 +131,19 @@ const SalesPurchaseQueueView: React.FC = () => {
               )}
             </div>
 
-            {/* Already priced (still in purchase queue) */}
+            {/* Approved price, purchase can complete */}
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold text-primaryText/80">Already priced</p>
-                <span className="text-[11px] text-primaryText/60">{priced.length}</span>
+                <p className="text-xs font-semibold text-primaryText/80">Ready to complete</p>
+                <span className="text-[11px] text-primaryText/60">{readyToComplete.length}</span>
               </div>
-              {priced.length === 0 ? (
+              {readyToComplete.length === 0 ? (
                 <div className="rounded-lg border border-stroke bg-foreground p-4 text-xs text-primaryText/70">
-                  No priced tickets here.
+                  No approved purchase tickets here.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {priced.map((po) => (
+                  {readyToComplete.map((po) => (
                     <SalesPOCard
                       key={po.id}
                       po={po}
@@ -165,63 +164,74 @@ const SalesPurchaseQueueView: React.FC = () => {
           onClose={() => setSelectedPO(null)}
           maskCompany={!isAdmin}
           action={{
-            title: 'Purchase Action',
-            primaryLabel: 'Submit Price & Send to Admin',
+            title:
+              selectedPO.status === 'purchase_approved'
+                ? 'Purchase Completion'
+                : 'Purchase Pricing',
+            primaryLabel:
+              selectedPO.status === 'purchase_approved'
+                ? 'Mark Purchase Completed'
+                : 'Submit Price & Send to Admin',
             submittingLabel: 'Submitting…',
-            noteLabel: 'Purchase Notes',
-            notePlaceholder: 'Optional: supplier info, assumptions, lead time, remarks…',
-            renderExtraFields: ({ setField }) => {
-              return (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
-                      Price (₹)
-                    </label>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step="0.01"
-                      defaultValue={
-                        selectedPO.askingPrice !== null && selectedPO.askingPrice !== undefined
-                          ? Number(selectedPO.askingPrice)
-                          : undefined
-                      }
-                      onChange={(e) => setField('price', e.target.value)}
-                      className="w-full rounded-lg border border-stroke bg-background p-2 text-xs text-primaryText outline-none focus:ring-1 focus:ring-accent"
-                      placeholder="Enter final purchase price"
-                      required
-                    />
-                  </div>
-
-                  {/* Optional: delivery code later */}
-                  {/* <div className="space-y-1">
-                    <label className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
-                      Delivery Code
-                    </label>
-                    <input
-                      type="text"
-                      onChange={(e) => setField('deliveryCode', e.target.value)}
-                      className="w-full rounded-lg border border-stroke bg-background p-2 text-xs text-primaryText outline-none focus:ring-1 focus:ring-accent"
-                      placeholder="Optional"
-                    />
-                  </div> */}
-                </div>
-              );
-            },
+            noteLabel:
+              selectedPO.status === 'purchase_approved' ? 'Completion Notes' : 'Purchase Notes',
+            notePlaceholder:
+              selectedPO.status === 'purchase_approved'
+                ? 'Optional: purchase completion notes…'
+                : 'Optional: supplier info, assumptions, lead time, remarks…',
+            renderExtraFields:
+              selectedPO.status === 'routed_to_purchase'
+                ? ({ setField }) => (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
+                          Purchase Price (₹)
+                        </label>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          step="0.01"
+                          defaultValue={
+                            selectedPO.purchasePrice !== null &&
+                            selectedPO.purchasePrice !== undefined
+                              ? Number(selectedPO.purchasePrice)
+                              : undefined
+                          }
+                          onChange={(e) => setField('price', e.target.value)}
+                          className="w-full rounded-lg border border-stroke bg-background p-2 text-xs text-primaryText outline-none focus:ring-1 focus:ring-accent"
+                          placeholder="Enter purchase price"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )
+                : undefined,
             onSubmit: async ({ note, fields }) => {
+              if (selectedPO.status === 'purchase_approved') {
+                const updated = await updateSalesPOStatus(selectedPO.id, {
+                  toStatus: 'purchase_completed',
+                  newComments: note,
+                });
+
+                setData((prev) => prev.filter((p) => p.id !== updated.id));
+                return;
+              }
+
+              if (selectedPO.status !== 'routed_to_purchase') {
+                throw new Error('This ticket is not ready for purchase action.');
+              }
+
               const raw = String(fields.price ?? '').trim();
               const price = Number(raw);
-
               if (!raw || Number.isNaN(price) || price <= 0) {
                 throw new Error('Please enter a valid price.');
               }
 
               const updated = await updateSalesPOStatus(selectedPO.id, {
                 toStatus: 'purchase_priced',
-                newAskingPrice: price,
+                purchasePrice: price,
                 newComments: note,
-                sendTo: 'admin',
               });
 
               setData((prev) => prev.filter((p) => p.id !== updated.id));
