@@ -37,6 +37,13 @@ Install dependencies:
 npm run dev
 Open your browser at http://localhost:5173
 
+## 📚 Documentation
+
+Sales PO v1 frontend and document component docs are maintained in the backend repository docs folder:
+
+- `../kavalife-erp-backend/docs/frontend/10-sales-po-frontend.md`
+- `../kavalife-erp-backend/docs/frontend/11-document-components.md`
+
 
 🌟 Environment Variables
 Create a .env file at the root:
