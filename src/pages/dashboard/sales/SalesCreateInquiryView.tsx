@@ -1,8 +1,10 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
+import { FileText, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { uploadDocuments } from '@/api/documents';
 import { createSalesPO } from '@/api/sales';
 import type { SalesPORequestType } from '@/types/sales';
 
@@ -40,12 +42,17 @@ const initialFormState: FormState = {
   expectedDeliveryDate: '',
 };
 
+type SubmitPhase = 'idle' | 'creating' | 'uploading';
+
 const SalesCreateInquiryView: React.FC = () => {
   const { authUser } = useAuthContext();
   const [form, setForm] = useState<FormState>(initialFormState);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isNumberField = useMemo(() => new Set(['quantity', 'askingPrice']), []);
+  const submitting = submitPhase !== 'idle';
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -107,6 +114,27 @@ const SalesCreateInquiryView: React.FC = () => {
 
   const reset = useCallback(() => setForm(initialFormState), []);
 
+  const clearSelectedFiles = useCallback(() => {
+    setSelectedFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
+
+  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedFiles(Array.from(event.target.files ?? []));
+  }, []);
+
+  const removeSelectedFile = useCallback((indexToRemove: number) => {
+    setSelectedFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
+
+  const submitButtonLabel =
+    submitPhase === 'creating'
+      ? 'Creating Inquiry...'
+      : submitPhase === 'uploading'
+        ? 'Uploading Documents...'
+        : 'Create Inquiry';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -114,13 +142,34 @@ const SalesCreateInquiryView: React.FC = () => {
     if (err) return toast.error(err);
 
     try {
-      setSubmitting(true);
+      setSubmitPhase('creating');
 
       const payload = buildPayload();
-      await createSalesPO(payload);
+      const createdPo = await createSalesPO(payload);
 
-      toast.success('Inquiry created and sent for admin review');
+      if (selectedFiles.length > 0) {
+        try {
+          setSubmitPhase('uploading');
+          await uploadDocuments({
+            module: 'sales_po',
+            entityId: createdPo.id,
+            documentType: 'customer_coa',
+            files: selectedFiles,
+          });
+        } catch (uploadError: unknown) {
+          console.error('CreateInquiry document upload error:', uploadError);
+          toast('Inquiry created, but document upload failed.', { icon: '!' });
+          return;
+        }
+      }
+
+      toast.success(
+        selectedFiles.length > 0
+          ? 'Inquiry created and documents uploaded'
+          : 'Inquiry created and sent for admin review'
+      );
       reset();
+      clearSelectedFiles();
     } catch (error: unknown) {
       let message = 'Failed to create inquiry';
 
@@ -136,7 +185,7 @@ const SalesCreateInquiryView: React.FC = () => {
       console.error('CreateInquiry error:', error);
       toast.error(message);
     } finally {
-      setSubmitting(false);
+      setSubmitPhase('idle');
     }
   };
 
@@ -355,6 +404,73 @@ const SalesCreateInquiryView: React.FC = () => {
             />
           </div>
 
+          {/* Customer Documents */}
+          <div>
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <div>
+                <label className="block text-sm font-medium text-primaryText">
+                  Customer Documents / COA
+                </label>
+                <p className="text-[11px] text-primaryText/60">PDF or image files</p>
+              </div>
+              {selectedFiles.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearSelectedFiles}
+                  disabled={submitting}
+                  className="rounded-md border border-stroke bg-background px-2 py-1 text-[11px] text-primaryText/70 hover:bg-stroke/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+
+            <label
+              className={[
+                'flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-stroke bg-background px-3 py-4 text-center transition hover:bg-stroke/20',
+                submitting ? 'cursor-not-allowed opacity-60' : '',
+              ].join(' ')}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="application/pdf,image/*"
+                disabled={submitting}
+                onChange={handleFileChange}
+                className="sr-only"
+              />
+              <FileText size={22} className="mb-2 text-primaryText/60" />
+              <span className="text-xs font-medium text-primaryText">Select documents</span>
+              <span className="mt-1 text-[11px] text-primaryText/60">
+                Files upload after the inquiry is created
+              </span>
+            </label>
+
+            {selectedFiles.length > 0 ? (
+              <div className="mt-2 space-y-1">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={`${file.name}-${file.size}-${file.lastModified}`}
+                    className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5 text-xs text-primaryText"
+                  >
+                    <FileText size={14} className="shrink-0 text-primaryText/60" />
+                    <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeSelectedFile(index)}
+                      disabled={submitting}
+                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-primaryText/50 hover:bg-stroke/30 hover:text-primaryText disabled:cursor-not-allowed disabled:opacity-60"
+                      aria-label={`Remove ${file.name}`}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
           {/* Submit */}
           <div className="pt-2">
             <button
@@ -362,7 +478,7 @@ const SalesCreateInquiryView: React.FC = () => {
               disabled={submitting}
               className="inline-flex items-center rounded-md bg-accent px-4 py-2 text-sm font-medium text-background shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? 'Creating Inquiry…' : 'Create Inquiry'}
+              {submitButtonLabel}
             </button>
           </div>
         </div>

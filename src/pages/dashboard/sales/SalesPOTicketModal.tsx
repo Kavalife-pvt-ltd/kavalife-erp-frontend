@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 
+import DocumentList from '@/components/documents/DocumentList';
 import { Loader } from '@/components/ui/Loader';
 import type { SalesPO, SalesPOStatusLog } from '@/types/sales';
 import { getSalesPOStatusLog } from '@/api/sales';
@@ -278,6 +279,10 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
               )}
             </div>
           </section>
+        </div>
+
+        <div className="mt-4">
+          <DocumentList module="sales_po" entityId={po.id} />
         </div>
 
         {/* action section */}
