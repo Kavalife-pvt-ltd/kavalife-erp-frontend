@@ -4,6 +4,12 @@ import axios from 'axios';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { Loader } from '@/components/ui/Loader';
 import SalesPOCard from '@/components/ui/SalesPOCard';
+import {
+  SalesEmptyState,
+  SalesMessageCard,
+  SalesPageHeader,
+  SalesSectionHeader,
+} from '@/components/sales/SalesDesign';
 
 import type { SalesPO } from '@/types/sales';
 import { listSalesPO, updateSalesPOStatus } from '@/api/sales';
@@ -60,9 +66,7 @@ const SalesProductionQueueView: React.FC = () => {
 
   if (!canAccess) {
     return (
-      <div className="rounded-xl border border-stroke bg-foreground p-4 text-sm text-primaryText">
-        You do not have access to Production Queue.
-      </div>
+      <SalesMessageCard>You do not have access to Production Queue.</SalesMessageCard>
     );
   }
 
@@ -76,24 +80,23 @@ const SalesProductionQueueView: React.FC = () => {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-stroke bg-foreground p-4 text-sm text-primaryText">
-        {error}
-      </div>
+      <SalesMessageCard>{error}</SalesMessageCard>
     );
   }
 
   return (
     <>
       <div className="flex h-full flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-primaryText">Production Queue</h2>
-          <span className="text-xs text-primaryText/70">{data.length} items</span>
-        </div>
+        <SalesPageHeader
+          title="Production Queue"
+          description="Complete production-routed sales tickets and return them for final admin review."
+          meta={<span className="text-sm text-muted-foreground">{data.length} items</span>}
+        />
+
+        <SalesSectionHeader title="Ready for production" count={data.length} />
 
         {data.length === 0 ? (
-          <div className="rounded-xl border border-stroke bg-foreground p-6 text-center text-sm text-primaryText/80">
-            No tickets in production queue right now.
-          </div>
+          <SalesEmptyState description="No tickets in production queue right now." />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {data.map((po) => (

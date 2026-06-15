@@ -2,7 +2,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 
 import DocumentList from '@/components/documents/DocumentList';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Loader } from '@/components/ui/Loader';
+import { Textarea } from '@/components/ui/textarea';
+import { SalesStatusBadge } from '@/components/sales/SalesDesign';
 import type { SalesPO, SalesPOStatusLog } from '@/types/sales';
 import { getSalesPOStatusLog } from '@/api/sales';
 import { prettyStatus, prettyTransition } from '@/utils/salesStatus';
@@ -142,54 +153,47 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-3">
-      <div className="w-full max-w-3xl rounded-xl border border-stroke bg-foreground p-4 shadow-custom">
-        <header className="mb-3 flex items-start justify-between gap-2">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-3xl">
+        <DialogHeader>
           <div>
-            <h2 className="text-sm font-semibold text-primaryText">
-              Ticket Details – {primaryNumberLabel}
-            </h2>
-            {po.poNumber && po.inquiryNumber ? (
-              <p className="text-xs text-primaryText/70">Inquiry #{po.inquiryNumber}</p>
-            ) : null}
-            <p className="text-xs text-primaryText/70">
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <DialogTitle>Ticket Details - {primaryNumberLabel}</DialogTitle>
+              <SalesStatusBadge status={po.status} />
+            </div>
+            <DialogDescription>
               {maskCompany ? 'Customer hidden' : po.companyName} • {po.quantity}{' '}
               {po.quantityUnit ?? ''} {po.purity ? `• ${po.purity}` : ''}
-            </p>
+              {po.poNumber && po.inquiryNumber ? ` • Inquiry #${po.inquiryNumber}` : ''}
+            </DialogDescription>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-xs text-primaryText/60 hover:text-primaryText"
-          >
-            ✕
-          </button>
-        </header>
+        </DialogHeader>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex-1 space-y-5 overflow-y-auto py-4">
+          <div className="grid gap-4 md:grid-cols-2">
           {/* left details */}
-          <section className="space-y-2 text-xs text-primaryText">
+          <section className="space-y-3 text-sm text-foreground">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
+              <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
                 Company
               </p>
               {maskCompany ? (
-                <p className="text-primaryText/70">Customer details hidden for this view</p>
+                <p className="text-muted-foreground">Customer details hidden for this view</p>
               ) : (
                 <>
                   <p className="font-medium">{po.companyName}</p>
-                  <p className="whitespace-pre-line text-primaryText/70">{po.companyAddress}</p>
+                  <p className="whitespace-pre-line text-muted-foreground">{po.companyAddress}</p>
                 </>
               )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Created</p>
+                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">Created</p>
                 <p>{createdDate}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
                   Expected Delivery
                 </p>
                 <p>{expectedDate}</p>
@@ -198,18 +202,18 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Status</p>
+                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">Status</p>
                 <p>{prettyStatus(po.status)}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Send To</p>
+                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">Send To</p>
                 <p>{po.sendTo ?? '—'}</p>
               </div>
             </div>
 
             {po.askingPrice !== undefined && po.askingPrice !== null && (
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
                   Asking Price
                 </p>
                 <p>₹{Number(po.askingPrice).toLocaleString('en-IN')}</p>
@@ -218,7 +222,7 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
 
             {po.purchasePrice !== undefined && po.purchasePrice !== null && (
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
                   Purchase Price
                 </p>
                 <p>₹{Number(po.purchasePrice).toLocaleString('en-IN')}</p>
@@ -227,49 +231,49 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
 
             {po.comments && (
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Comments</p>
-                <p className="whitespace-pre-line text-primaryText/80">{po.comments}</p>
+                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">Comments</p>
+                <p className="whitespace-pre-line text-foreground">{po.comments}</p>
               </div>
             )}
 
             {po.rejectionReason && (
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-red-500">Rejection</p>
-                <p className="whitespace-pre-line text-red-500/90">{po.rejectionReason}</p>
+                <p className="text-xs uppercase tracking-normal text-destructive">Rejection</p>
+                <p className="whitespace-pre-line text-destructive">{po.rejectionReason}</p>
               </div>
             )}
           </section>
 
           {/* right history */}
-          <section className="text-xs text-primaryText">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primaryText/60">
+          <section className="text-sm text-foreground">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
               Status History
             </p>
 
-            <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-stroke bg-background p-2">
+            <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border bg-background p-2">
               {loadingLogs ? (
                 <div className="flex items-center justify-center py-4">
                   <Loader />
                 </div>
               ) : logError ? (
-                <p className="text-xs text-red-500">{logError}</p>
+                <p className="text-xs text-destructive">{logError}</p>
               ) : timeline.length === 0 ? (
-                <p className="text-[11px] text-primaryText/60">No status changes logged yet.</p>
+                <p className="text-xs text-muted-foreground">No status changes logged yet.</p>
               ) : (
                 <>
-                  <div className="rounded-md bg-foreground/40 p-1.5">
-                    <div className="text-[11px] font-semibold">Created</div>
-                    <div className="text-[11px] text-primaryText/60">{createdDate}</div>
+                  <div className="rounded-md bg-card p-2">
+                    <div className="text-xs font-semibold">Created</div>
+                    <div className="text-xs text-muted-foreground">{createdDate}</div>
                   </div>
 
                   {timeline.map((item) => (
-                    <div key={item.id} className="rounded-md bg-foreground/40 p-1.5">
-                      <div className="text-[11px] font-semibold">{item.label}</div>
+                    <div key={item.id} className="rounded-md bg-card p-2">
+                      <div className="text-xs font-semibold">{item.label}</div>
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-[11px] text-primaryText/60">{item.at}</span>
+                        <span className="text-xs text-muted-foreground">{item.at}</span>
                       </div>
                       {item.note ? (
-                        <p className="mt-0.5 whitespace-pre-line text-[11px] text-primaryText/70">
+                        <p className="mt-0.5 whitespace-pre-line text-xs text-muted-foreground">
                           {item.note}
                         </p>
                       ) : null}
@@ -287,59 +291,46 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
 
         {/* action section */}
         {action ? (
-          <form onSubmit={handleSubmit} className="mt-4 border-t border-stroke pt-3">
-            <div className="mb-2 text-xs font-semibold text-primaryText">{action.title}</div>
+          <form onSubmit={handleSubmit} className="mt-4 border-t pt-4">
+            <div className="mb-2 text-sm font-semibold text-foreground">{action.title}</div>
 
             <div className="space-y-2">
               {action.renderExtraFields?.({ setField, fields })}
 
               <div className="space-y-1">
-                <label className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
+                <label className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
                   {action.noteLabel ?? 'Notes'}
                 </label>
-                <textarea
+                <Textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   rows={3}
-                  className="w-full rounded-lg border border-stroke bg-background p-2 text-xs text-primaryText outline-none focus:ring-1 focus:ring-accent"
                   placeholder={action.notePlaceholder ?? 'Optional note…'}
                 />
               </div>
 
-              {submitError ? <p className="text-xs text-red-500">{submitError}</p> : null}
+              {submitError ? <p className="text-xs text-destructive">{submitError}</p> : null}
 
               <div className="mt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-lg border border-stroke bg-background px-3 py-1 text-xs text-primaryText hover:bg-stroke/40"
-                  disabled={submitting}
-                >
+                <Button type="button" onClick={onClose} variant="outline" disabled={submitting}>
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-accent px-3 py-1 text-xs font-medium text-background hover:opacity-90 disabled:opacity-60"
-                  disabled={submitting}
-                >
+                </Button>
+                <Button type="submit" disabled={submitting}>
                   {submitting ? (action.submittingLabel ?? 'Submitting…') : action.primaryLabel}
-                </button>
+                </Button>
               </div>
             </div>
           </form>
         ) : (
-          <footer className="mt-4 flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-stroke bg-background px-3 py-1 text-xs text-primaryText hover:bg-stroke/40"
-            >
+          <DialogFooter>
+            <Button type="button" onClick={onClose} variant="outline">
               Close
-            </button>
-          </footer>
+            </Button>
+          </DialogFooter>
         )}
-      </div>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

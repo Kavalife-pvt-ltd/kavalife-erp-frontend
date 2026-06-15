@@ -164,8 +164,8 @@ export function ProcessBoardPage() {
       </div>
 
       {error ? (
-        <Card className="border-destructive/40 bg-card">
-          <CardContent className="p-4 text-sm text-destructive">
+        <Card className="border-red-300 bg-white">
+          <CardContent className="p-4 text-sm text-red-600">
             Real manufacturing API read failed. Showing temporary fallback data. {error}
           </CardContent>
         </Card>
@@ -212,7 +212,7 @@ export function ProcessBoardPage() {
       )}
 
       {placeholderAction ? (
-        <Card className="border-dashed bg-muted/30">
+        <Card className="border-dashed bg-gray-50">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-semibold">{placeholderAction.title}</p>

@@ -64,7 +64,7 @@ export function BatchHistoryPage() {
       </div>
 
       {error ? (
-        <div className="rounded-md border border-destructive/40 bg-card p-4 text-sm text-destructive">
+        <div className="rounded-md border border-red-300 bg-white p-4 text-sm text-red-600">
           Batch history API read failed. {error}
         </div>
       ) : null}

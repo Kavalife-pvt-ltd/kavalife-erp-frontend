@@ -4,6 +4,13 @@ import axios from 'axios';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { Loader } from '@/components/ui/Loader';
 import SalesPOCard from '@/components/ui/SalesPOCard';
+import { Input } from '@/components/ui/input';
+import {
+  SalesEmptyState,
+  SalesMessageCard,
+  SalesPageHeader,
+  SalesSectionHeader,
+} from '@/components/sales/SalesDesign';
 
 import type { SalesPO } from '@/types/sales';
 import { listSalesPO, updateSalesPOStatus } from '@/api/sales';
@@ -71,9 +78,7 @@ const SalesPurchaseQueueView: React.FC = () => {
 
   if (!canAccess) {
     return (
-      <div className="rounded-xl border border-stroke bg-foreground p-4 text-sm text-primaryText">
-        You do not have access to Purchase Queue.
-      </div>
+      <SalesMessageCard>You do not have access to Purchase Queue.</SalesMessageCard>
     );
   }
 
@@ -87,36 +92,28 @@ const SalesPurchaseQueueView: React.FC = () => {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-stroke bg-foreground p-4 text-sm text-primaryText">
-        {error}
-      </div>
+      <SalesMessageCard>{error}</SalesMessageCard>
     );
   }
 
   return (
     <>
       <div className="flex h-full flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-primaryText">Purchase Queue</h2>
-          <span className="text-xs text-primaryText/70">{data.length} items</span>
-        </div>
+        <SalesPageHeader
+          title="Purchase Queue"
+          description="Price purchase-routed tickets and complete approved purchase work."
+          meta={<span className="text-sm text-muted-foreground">{data.length} items</span>}
+        />
 
         {data.length === 0 ? (
-          <div className="rounded-xl border border-stroke bg-foreground p-6 text-center text-sm text-primaryText/80">
-            No tickets in purchase queue right now.
-          </div>
+          <SalesEmptyState description="No tickets in purchase queue right now." />
         ) : (
           <div className="space-y-4">
             {/* Needs pricing */}
             <div>
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold text-primaryText/80">Needs pricing</p>
-                <span className="text-[11px] text-primaryText/60">{needsPricing.length}</span>
-              </div>
+              <SalesSectionHeader title="Needs pricing" count={needsPricing.length} />
               {needsPricing.length === 0 ? (
-                <div className="rounded-lg border border-stroke bg-foreground p-4 text-xs text-primaryText/70">
-                  Nothing pending pricing.
-                </div>
+                <SalesEmptyState title="Nothing pending" description="Nothing pending pricing." />
               ) : (
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {needsPricing.map((po) => (
@@ -133,14 +130,12 @@ const SalesPurchaseQueueView: React.FC = () => {
 
             {/* Approved price, purchase can complete */}
             <div>
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold text-primaryText/80">Ready to complete</p>
-                <span className="text-[11px] text-primaryText/60">{readyToComplete.length}</span>
-              </div>
+              <SalesSectionHeader title="Ready to complete" count={readyToComplete.length} />
               {readyToComplete.length === 0 ? (
-                <div className="rounded-lg border border-stroke bg-foreground p-4 text-xs text-primaryText/70">
-                  No approved purchase tickets here.
-                </div>
+                <SalesEmptyState
+                  title="Nothing pending"
+                  description="No approved purchase tickets here."
+                />
               ) : (
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {readyToComplete.map((po) => (
@@ -184,10 +179,10 @@ const SalesPurchaseQueueView: React.FC = () => {
                 ? ({ setField }) => (
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1">
-                        <label className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
+                        <label className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
                           Purchase Price (₹)
                         </label>
-                        <input
+                        <Input
                           type="number"
                           inputMode="decimal"
                           min={0}
@@ -199,7 +194,6 @@ const SalesPurchaseQueueView: React.FC = () => {
                               : undefined
                           }
                           onChange={(e) => setField('price', e.target.value)}
-                          className="w-full rounded-lg border border-stroke bg-background p-2 text-xs text-primaryText outline-none focus:ring-1 focus:ring-accent"
                           placeholder="Enter purchase price"
                           required
                         />

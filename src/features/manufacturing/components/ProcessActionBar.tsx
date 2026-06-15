@@ -20,7 +20,7 @@ export function ProcessActionBar({
   isCreating = false,
 }: ProcessActionBarProps) {
   return (
-    <div className="sticky bottom-0 z-20 border-t bg-background/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+    <div className="sticky bottom-0 z-20 border-t border-stroke bg-background px-3 py-3 sm:px-6">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:justify-end">
         {onCreateProcess ? (
           <Button

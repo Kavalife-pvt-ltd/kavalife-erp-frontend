@@ -206,7 +206,7 @@ export function CreateProcessJobModal({
         </DialogHeader>
 
         <div className="flex-1 space-y-5 overflow-y-auto py-4">
-          <div className="rounded-md border bg-muted/30 p-4">
+          <div className="rounded-md border bg-gray-50 p-4">
             <div className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
               <ContextItem label="Process" value={`${processName} (${processCode})`} />
               <ContextItem label="Batch" value={contextCard?.batchNumber ?? 'Not selected yet'} />

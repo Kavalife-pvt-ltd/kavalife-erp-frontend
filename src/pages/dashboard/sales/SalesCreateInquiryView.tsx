@@ -2,6 +2,11 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import imageCompression from 'browser-image-compression';
 import { FileText, X } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import toast from 'react-hot-toast';
 
 import { useAuthContext } from '@/hooks/useAuthContext';
@@ -238,7 +243,7 @@ const SalesCreateInquiryView: React.FC = () => {
 
   if (!authUser) {
     return (
-      <div className="rounded-xl border border-stroke bg-background p-4 text-sm text-primaryText">
+      <div className="rounded-lg border bg-card p-4 text-sm text-card-foreground">
         Please log in to create an inquiry.
       </div>
     );
@@ -247,8 +252,8 @@ const SalesCreateInquiryView: React.FC = () => {
   return (
     <div className="flex h-full flex-col gap-4">
       <header>
-        <h2 className="text-lg font-semibold text-primaryText">Create Inquiry</h2>
-        <p className="text-sm text-primaryText/70">
+        <h2 className="text-3xl font-bold text-foreground">Create Inquiry</h2>
+        <p className="mt-2 max-w-3xl text-muted-foreground">
           Capture client and product requirements. This inquiry goes to admin for review and routing
           to purchase/production.
         </p>
@@ -256,86 +261,88 @@ const SalesCreateInquiryView: React.FC = () => {
 
       <form
         onSubmit={handleSubmit}
-        className="grid flex-1 grid-cols-1 gap-4 rounded-xl border border-stroke bg-foreground p-4 shadow-custom md:grid-cols-2"
+        className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2"
       >
-        {/* LEFT */}
-        <div className="space-y-4">
-          {/* Product Name */}
-          <div>
-            <label className="block text-sm font-medium text-primaryText">
-              Product<span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="productName"
-              value={form.productName}
-              onChange={handleChange}
-              placeholder="e.g. Chilli Powder"
-              className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-            <p className="mt-1 text-[11px] text-primaryText/60">
-              Tip: keep it human-readable. Admin/purchase/production will see this as-is.
-            </p>
-          </div>
+        <Card className="md:col-span-2">
+          <CardContent className="grid gap-6 p-5 md:grid-cols-2">
+            {/* LEFT */}
+            <div className="space-y-4">
+              {/* Product Name */}
+              <div>
+                <label className="block text-sm font-medium text-foreground">
+                  Product<span className="text-destructive">*</span>
+                </label>
+                <Input
+                  type="text"
+                  name="productName"
+                  value={form.productName}
+                  onChange={handleChange}
+                  placeholder="e.g. Chilli Powder"
+                  className="mt-1"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Tip: keep it human-readable. Admin/purchase/production will see this as-is.
+                </p>
+              </div>
 
-          {/* Company Name */}
-          <div>
-            <label className="block text-sm font-medium text-primaryText">
-              Company Name<span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="companyName"
-              value={form.companyName}
-              onChange={handleChange}
-              className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </div>
+              {/* Company Name */}
+              <div>
+                <label className="block text-sm font-medium text-foreground">
+                  Company Name<span className="text-destructive">*</span>
+                </label>
+                <Input
+                  type="text"
+                  name="companyName"
+                  value={form.companyName}
+                  onChange={handleChange}
+                  className="mt-1"
+                />
+              </div>
 
           {/* Company Address */}
           <div>
-            <label className="block text-sm font-medium text-primaryText">Company Address</label>
-            <textarea
+            <label className="block text-sm font-medium text-foreground">Company Address</label>
+            <Textarea
               name="companyAddress"
               value={form.companyAddress}
               onChange={handleChange}
               rows={3}
-              className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              className="mt-1"
             />
           </div>
 
           {/* Contact */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-primaryText">Contact Name</label>
-              <input
+              <label className="block text-sm font-medium text-foreground">Contact Name</label>
+              <Input
                 type="text"
                 name="contactName"
                 value={form.contactName}
                 onChange={handleChange}
-                className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                className="mt-1"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-primaryText">Contact Number</label>
-              <input
+              <label className="block text-sm font-medium text-foreground">Contact Number</label>
+              <Input
                 type="tel"
                 name="contactNumber"
                 value={form.contactNumber}
                 onChange={handleChange}
-                className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                className="mt-1"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-primaryText">Contact Email</label>
-            <input
+            <label className="block text-sm font-medium text-foreground">Contact Email</label>
+            <Input
               type="email"
               name="contactEmail"
               value={form.contactEmail}
               onChange={handleChange}
-              className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              className="mt-1"
             />
           </div>
         </div>
@@ -345,37 +352,37 @@ const SalesCreateInquiryView: React.FC = () => {
           {/* Purity & Grade */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-primaryText">Purity</label>
-              <input
+              <label className="block text-sm font-medium text-foreground">Purity</label>
+              <Input
                 type="text"
                 name="purity"
                 value={form.purity}
                 onChange={handleChange}
                 placeholder="e.g. 98%"
-                className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                className="mt-1"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-primaryText">Grade</label>
-              <input
+              <label className="block text-sm font-medium text-foreground">Grade</label>
+              <Input
                 type="text"
                 name="grade"
                 value={form.grade}
                 onChange={handleChange}
                 placeholder="e.g. Pharma / Food"
-                className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                className="mt-1"
               />
             </div>
           </div>
 
           {/* Request Type */}
           <div>
-            <label className="block text-sm font-medium text-primaryText">Request Type</label>
+            <label className="block text-sm font-medium text-foreground">Request Type</label>
             <select
               name="requestType"
               value={form.requestType}
               onChange={handleChange}
-              className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <option value="purchase">Purchase</option>
               <option value="sample">Sample</option>
@@ -385,69 +392,69 @@ const SalesCreateInquiryView: React.FC = () => {
           {/* Quantity / Unit / Price */}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div>
-              <label className="block text-sm font-medium text-primaryText">
-                Quantity<span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-foreground">
+                Quantity<span className="text-destructive">*</span>
               </label>
-              <input
+              <Input
                 type="text"
                 name="quantity"
                 inputMode="decimal"
                 value={form.quantity}
                 onChange={handleChange}
-                className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                className="mt-1"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primaryText">Unit</label>
-              <input
+              <label className="block text-sm font-medium text-foreground">Unit</label>
+              <Input
                 type="text"
                 name="quantityUnit"
                 value={form.quantityUnit}
                 onChange={handleChange}
                 placeholder="kg, L, pcs..."
-                className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                className="mt-1"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primaryText">Asking Price</label>
-              <input
+              <label className="block text-sm font-medium text-foreground">Asking Price</label>
+              <Input
                 type="text"
                 name="askingPrice"
                 inputMode="decimal"
                 value={form.askingPrice}
                 onChange={handleChange}
                 placeholder="Optional"
-                className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                className="mt-1"
               />
             </div>
           </div>
 
           {/* Expected Delivery Date */}
           <div>
-            <label className="block text-sm font-medium text-primaryText">
+            <label className="block text-sm font-medium text-foreground">
               Expected Delivery Date
             </label>
-            <input
+            <Input
               type="date"
               name="expectedDeliveryDate"
               value={form.expectedDeliveryDate}
               onChange={handleChange}
-              className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              className="mt-1"
             />
           </div>
 
           {/* Comments */}
           <div>
-            <label className="block text-sm font-medium text-primaryText">Comments / Notes</label>
-            <textarea
+            <label className="block text-sm font-medium text-foreground">Comments / Notes</label>
+            <Textarea
               name="comments"
               value={form.comments}
               onChange={handleChange}
               rows={3}
               placeholder="Any special instructions / negotiation notes…"
-              className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              className="mt-1"
             />
           </div>
 
@@ -455,30 +462,31 @@ const SalesCreateInquiryView: React.FC = () => {
           <div>
             <div className="mb-2 flex items-start justify-between gap-3">
               <div>
-                <label className="block text-sm font-medium text-primaryText">
+                <label className="block text-sm font-medium text-foreground">
                   Customer Documents / COA
                 </label>
-                <p className="text-[11px] text-primaryText/60">PDF or image files</p>
+                <p className="text-xs text-muted-foreground">PDF or image files</p>
               </div>
               {selectedFiles.length > 0 ? (
-                <button
+                <Button
                   type="button"
                   onClick={clearSelectedFiles}
                   disabled={submitting}
-                  className="rounded-md border border-stroke bg-background px-2 py-1 text-[11px] text-primaryText/70 hover:bg-stroke/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  variant="outline"
+                  size="sm"
                 >
                   Clear
-                </button>
+                </Button>
               ) : null}
             </div>
 
             <label
               className={[
-                'flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-stroke bg-background px-3 py-4 text-center transition hover:bg-stroke/20',
+                'flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed bg-background px-3 py-4 text-center transition hover:bg-muted/50',
                 submitting ? 'cursor-not-allowed opacity-60' : '',
               ].join(' ')}
             >
-              <input
+              <Input
                 ref={fileInputRef}
                 type="file"
                 multiple
@@ -487,9 +495,9 @@ const SalesCreateInquiryView: React.FC = () => {
                 onChange={handleFileChange}
                 className="sr-only"
               />
-              <FileText size={22} className="mb-2 text-primaryText/60" />
-              <span className="text-xs font-medium text-primaryText">Select documents</span>
-              <span className="mt-1 text-[11px] text-primaryText/60">
+              <FileText size={22} className="mb-2 text-muted-foreground" />
+              <span className="text-xs font-medium text-foreground">Select documents</span>
+              <span className="mt-1 text-xs text-muted-foreground">
                 Files upload after the inquiry is created
               </span>
             </label>
@@ -499,19 +507,21 @@ const SalesCreateInquiryView: React.FC = () => {
                 {selectedFiles.map((file, index) => (
                   <div
                     key={`${file.name}-${file.size}-${file.lastModified}`}
-                    className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5 text-xs text-primaryText"
+                    className="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-xs text-foreground"
                   >
-                    <FileText size={14} className="shrink-0 text-primaryText/60" />
+                    <FileText size={14} className="shrink-0 text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate">{file.name}</span>
-                    <button
+                    <Button
                       type="button"
                       onClick={() => removeSelectedFile(index)}
                       disabled={submitting}
-                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-primaryText/50 hover:bg-stroke/30 hover:text-primaryText disabled:cursor-not-allowed disabled:opacity-60"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0"
                       aria-label={`Remove ${file.name}`}
                     >
                       <X size={13} />
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -520,15 +530,13 @@ const SalesCreateInquiryView: React.FC = () => {
 
           {/* Submit */}
           <div className="pt-2">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="inline-flex items-center rounded-md bg-accent px-4 py-2 text-sm font-medium text-background shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
+            <Button type="submit" disabled={submitting}>
               {submitButtonLabel}
-            </button>
+            </Button>
           </div>
         </div>
+          </CardContent>
+        </Card>
       </form>
     </div>
   );

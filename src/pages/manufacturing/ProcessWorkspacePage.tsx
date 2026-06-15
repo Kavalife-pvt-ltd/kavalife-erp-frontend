@@ -113,7 +113,7 @@ export function ProcessWorkspacePage() {
       </div>
 
       {error ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-md border border-red-300 bg-white p-4 text-sm text-red-600">
           Error: {error}
         </div>
       ) : null}

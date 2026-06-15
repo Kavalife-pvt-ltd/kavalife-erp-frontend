@@ -30,10 +30,10 @@ export function getProcessStatusTone(
 
 export function getProcessStatusClassName(status: ProcessStatus): string {
   const classes: Record<ProcessStatus, string> = {
-    pending: 'border-muted-foreground/40 text-muted-foreground',
-    ready: 'bg-secondary text-secondary-foreground',
-    in_progress: 'bg-primary text-primary-foreground',
-    blocked: 'bg-destructive text-destructive-foreground',
+    pending: 'border-stroke text-captionPlaceholder',
+    ready: 'bg-gray-100 text-primaryText',
+    in_progress: 'bg-blue-500 text-white',
+    blocked: 'bg-red-600 text-white',
     qa_pending: 'bg-amber-500 text-white dark:bg-amber-400 dark:text-slate-950',
     completed: 'border-emerald-500/60 text-emerald-700 dark:text-emerald-300',
   };

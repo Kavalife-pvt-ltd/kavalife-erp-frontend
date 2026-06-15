@@ -5,6 +5,14 @@ import toast from 'react-hot-toast';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { Loader } from '@/components/ui/Loader';
 import SalesPOCard from '@/components/ui/SalesPOCard';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  SalesEmptyState,
+  SalesMessageCard,
+  SalesPageHeader,
+  SalesSectionHeader,
+} from '@/components/sales/SalesDesign';
 import type { SalesPO, SalesPOStatus } from '@/types/sales';
 import { listSalesPO, updateSalesPOStatus } from '@/api/sales';
 import SalesPOTicketModal, { type SalesPOTicketActionConfig } from './SalesPOTicketModal';
@@ -127,9 +135,9 @@ const SalesAdminReviewView: React.FC = () => {
         noteLabel: 'Admin Notes',
         notePlaceholder: 'Optional notes for the next team...',
         renderExtraFields: ({ setField, fields }) => (
-          <div className="space-y-3 rounded-lg border border-stroke bg-background p-3 text-xs text-primaryText">
+          <div className="space-y-3 rounded-lg border bg-background p-3 text-sm text-foreground">
             <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-primaryText/60">
+              <p className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
                 Decision
               </p>
               <label className="flex items-center gap-2">
@@ -162,13 +170,12 @@ const SalesAdminReviewView: React.FC = () => {
             </div>
             {fields.decision === 'return_sales' && (
               <div className="space-y-1">
-                <label className="text-[11px] font-medium uppercase tracking-wide text-red-500">
+                <label className="text-xs font-medium uppercase tracking-normal text-destructive">
                   Return Reason
                 </label>
-                <textarea
+                <Textarea
                   rows={3}
                   onChange={(e) => setField('rejectionReason', e.target.value)}
-                  className="w-full rounded-lg border border-stroke bg-foreground p-2 text-xs text-primaryText outline-none focus:ring-1 focus:ring-red-400"
                   placeholder="Required when returning to Sales"
                 />
               </div>
@@ -203,9 +210,9 @@ const SalesAdminReviewView: React.FC = () => {
         noteLabel: 'Admin Notes',
         notePlaceholder: 'Optional notes for purchase or sales...',
         renderExtraFields: ({ setField, fields }) => (
-          <div className="space-y-3 rounded-lg border border-stroke bg-background p-3 text-xs text-primaryText">
+          <div className="space-y-3 rounded-lg border bg-background p-3 text-sm text-foreground">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
+              <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
                 Purchase Price
               </p>
               <p className="mt-1 font-semibold">
@@ -235,10 +242,9 @@ const SalesAdminReviewView: React.FC = () => {
               </label>
             </div>
             {fields.decision === 'return_sales' && (
-              <textarea
+              <Textarea
                 rows={3}
                 onChange={(e) => setField('rejectionReason', e.target.value)}
-                className="w-full rounded-lg border border-stroke bg-foreground p-2 text-xs text-primaryText outline-none focus:ring-1 focus:ring-red-400"
                 placeholder="Required return reason"
               />
             )}
@@ -267,7 +273,7 @@ const SalesAdminReviewView: React.FC = () => {
       noteLabel: 'Admin Notes',
       notePlaceholder: 'Optional final approval notes...',
       renderExtraFields: ({ setField, fields }) => (
-        <div className="space-y-3 rounded-lg border border-stroke bg-background p-3 text-xs text-primaryText">
+        <div className="space-y-3 rounded-lg border bg-background p-3 text-sm text-foreground">
           <div className="space-y-2">
             <label className="flex items-center gap-2">
               <input
@@ -289,10 +295,9 @@ const SalesAdminReviewView: React.FC = () => {
             </label>
           </div>
           {fields.decision === 'return_sales' && (
-            <textarea
+            <Textarea
               rows={3}
               onChange={(e) => setField('rejectionReason', e.target.value)}
-              className="w-full rounded-lg border border-stroke bg-foreground p-2 text-xs text-primaryText outline-none focus:ring-1 focus:ring-red-400"
               placeholder="Required return reason"
             />
           )}
@@ -316,17 +321,13 @@ const SalesAdminReviewView: React.FC = () => {
 
   if (!authUser) {
     return (
-      <div className="rounded-xl border border-stroke bg-foreground p-4 text-sm text-primaryText">
-        Please log in to view POs.
-      </div>
+      <SalesMessageCard>Please log in to view POs.</SalesMessageCard>
     );
   }
 
   if (role !== 'admin') {
     return (
-      <div className="rounded-xl border border-stroke bg-foreground p-6 text-sm text-primaryText">
-        You do not have permission to access Admin Review.
-      </div>
+      <SalesMessageCard>You do not have permission to access Admin Review.</SalesMessageCard>
     );
   }
 
@@ -340,39 +341,29 @@ const SalesAdminReviewView: React.FC = () => {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-stroke bg-foreground p-4 text-sm text-primaryText">
-        {error}
-      </div>
+      <SalesMessageCard>{error}</SalesMessageCard>
     );
   }
 
   return (
     <>
       <div className="flex h-full flex-col gap-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-primaryText">Admin Queue</h2>
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            className="rounded-lg border border-stroke bg-background px-3 py-1 text-xs text-primaryText hover:bg-stroke/40"
-          >
-            Refresh
-          </button>
-        </div>
+        <SalesPageHeader
+          title="Admin Queue"
+          description="Review sales tickets, route work, approve pricing, and perform final approvals."
+          action={
+            <Button type="button" onClick={() => void refresh()} variant="outline" size="sm">
+              Refresh
+            </Button>
+          }
+        />
 
         {grouped.map((section) => (
           <section key={section.title} className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-primaryText/70">
-                {section.title}
-              </h3>
-              <span className="text-xs text-primaryText/70">{section.items.length} pending</span>
-            </div>
+            <SalesSectionHeader title={section.title} count={section.items.length} countLabel="pending" />
 
             {section.items.length === 0 ? (
-              <div className="rounded-xl border border-stroke bg-foreground p-5 text-sm text-primaryText/70">
-                No {section.title.toLowerCase()} items.
-              </div>
+              <SalesEmptyState description={`No ${section.title.toLowerCase()} items.`} />
             ) : (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {section.items.map((po) => (

@@ -3,6 +3,8 @@ import { ExternalLink, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { getDocumentSignedUrl, listDocuments } from '@/api/documents';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { DocumentUpload } from '@/types/documents';
 
 type Props = {
@@ -68,16 +70,17 @@ const DocumentList: React.FC<Props> = ({ module, entityId, refreshKey = 0 }) => 
   };
 
   return (
-    <section className="rounded-xl border border-stroke bg-foreground p-4 shadow-custom">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-primaryText">Documents</h3>
-        {loading ? <span className="text-[11px] text-primaryText/60">Loading...</span> : null}
-      </div>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4">
+        <CardTitle className="text-base">Documents</CardTitle>
+        {loading ? <span className="text-xs text-muted-foreground">Loading...</span> : null}
+      </CardHeader>
+      <CardContent className="px-4 pb-4">
 
-      {error ? <p className="text-xs text-red-500">{error}</p> : null}
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
       {!loading && !error && documents.length === 0 ? (
-        <p className="rounded-md bg-background px-3 py-2 text-xs text-primaryText/60">
+        <p className="rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground">
           No documents uploaded yet.
         </p>
       ) : null}
@@ -87,27 +90,29 @@ const DocumentList: React.FC<Props> = ({ module, entityId, refreshKey = 0 }) => 
           {documents.map((doc) => (
             <div
               key={doc.id}
-              className="flex items-center gap-3 rounded-md bg-background px-3 py-2 text-xs text-primaryText"
+              className="flex items-center gap-3 rounded-md border bg-background px-3 py-2 text-sm text-foreground"
             >
-              <FileText size={16} className="shrink-0 text-primaryText/60" />
+              <FileText size={16} className="shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{doc.originalFileName}</p>
-                <p className="text-[11px] text-primaryText/60">{formatDate(doc.createdAt)}</p>
+                <p className="text-xs text-muted-foreground">{formatDate(doc.createdAt)}</p>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => void handleOpen(doc.id)}
                 disabled={openingId === doc.id}
-                className="inline-flex items-center gap-1 rounded-lg border border-stroke bg-foreground px-2 py-1 text-[11px] font-medium text-primaryText hover:bg-stroke/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <ExternalLink size={13} />
                 {openingId === doc.id ? 'Opening...' : 'View'}
-              </button>
+              </Button>
             </div>
           ))}
         </div>
       ) : null}
-    </section>
+      </CardContent>
+    </Card>
   );
 };
 
