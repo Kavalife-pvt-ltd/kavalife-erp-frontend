@@ -59,7 +59,7 @@ const BASE_SALES_LINKS: NavSection = {
   links: [
     { to: '/sales?view=create-inquiry', label: 'Create Inquiry', icon: PlusCircle },
     { to: '/sales?view=my-inquiries', label: 'My Inquiries', icon: ListChecks },
-    { to: '/sales?view=all-pos', label: 'All POs', icon: ClipboardList },
+    { to: '/sales?view=all-pos', label: 'All Inquiries', icon: ClipboardList },
     { to: '/sales?view=admin-review', label: 'Admin Review', icon: ShieldCheck },
     { to: '/sales?view=purchase-queue', label: 'Purchase Queue', icon: ShoppingCart },
     { to: '/sales?view=production-queue', label: 'Production Queue', icon: Settings2 },

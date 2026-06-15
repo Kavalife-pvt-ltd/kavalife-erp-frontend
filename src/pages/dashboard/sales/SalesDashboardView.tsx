@@ -1,35 +1,40 @@
 // src/pages/dashboard/SalesDashboardView.tsx
 import React from 'react';
 
+import { SalesPageHeader } from '@/components/sales/SalesDesign';
+import { Card, CardContent } from '@/components/ui/card';
+
 const SalesDashboardView: React.FC = () => {
+  const kpis = [
+    'Total POs (This Month)',
+    'Pending Admin Approval',
+    'Under Purchase',
+    'Under Production',
+  ];
+
   return (
-    <div className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold text-slate-900">Sales Dashboard</h2>
+    <div className="flex flex-col gap-6">
+      <SalesPageHeader
+        title="Sales Dashboard"
+        description="Track inquiries, purchase orders, queue movement, and fulfillment handoffs."
+      />
 
-      {/* KPI cards */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-slate-500">Total POs (This Month)</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">–</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-slate-500">Pending Admin Approval</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">–</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-slate-500">Under Purchase</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">–</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-slate-500">Under Production</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">–</p>
-        </div>
+        {kpis.map((label) => (
+          <Card key={label}>
+            <CardContent className="p-5">
+              <p className="text-sm text-muted-foreground">{label}</p>
+              <p className="mt-2 text-3xl font-bold text-foreground">-</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* TODO: charts / recent activity cards */}
-      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
-        Charts and recent activity will go here.
-      </div>
+      <Card className="border-dashed">
+        <CardContent className="p-6 text-sm text-muted-foreground">
+          Charts and recent activity will go here.
+        </CardContent>
+      </Card>
     </div>
   );
 };

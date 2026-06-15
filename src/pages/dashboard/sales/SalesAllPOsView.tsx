@@ -5,6 +5,22 @@ import axios from 'axios';
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { Loader } from '@/components/ui/Loader';
 import SalesPOCard from '@/components/ui/SalesPOCard';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  SalesEmptyState,
+  SalesMessageCard,
+  SalesPageHeader,
+  SalesSectionHeader,
+  SalesStatusBadge,
+} from '@/components/sales/SalesDesign';
 import type { SalesPO, SalesPOStatusLog } from '@/types/sales';
 import { listSalesPO, getSalesPOStatusLog } from '@/api/sales';
 import { prettyStatus, prettyTransition } from '@/utils/salesStatus';
@@ -70,51 +86,46 @@ const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
   }, [po.id]);
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-3xl rounded-xl border border-stroke bg-foreground p-4 shadow-custom">
-        {/* Header */}
-        <header className="mb-3 flex items-start justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-semibold text-primaryText">
-              {getPrimaryNumberLabel(po)} – {po.requestType === 'sample' ? 'Sample' : 'Purchase'}
-            </h2>
-            {po.poNumber && po.inquiryNumber ? (
-              <p className="text-xs text-primaryText/70">Inquiry #{po.inquiryNumber}</p>
-            ) : null}
-            <p className="text-xs text-primaryText/70">
-              {po.companyName} • {po.quantity} {po.quantityUnit ?? ''}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-xs text-primaryText/60 hover:text-primaryText"
-          >
-            ✕
-          </button>
-        </header>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* LEFT: Core PO details */}
-          <section className="space-y-2 text-xs text-primaryText">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-3xl">
+        <DialogHeader>
+          <div className="flex items-start justify-between gap-3 pr-6">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
+              <DialogTitle>
+                {getPrimaryNumberLabel(po)} - {po.requestType === 'sample' ? 'Sample' : 'Purchase'}
+              </DialogTitle>
+              <DialogDescription>
+                {po.companyName} • {po.quantity} {po.quantityUnit ?? ''}
+              </DialogDescription>
+            </div>
+            <SalesStatusBadge status={po.status} />
+          </div>
+          {po.poNumber && po.inquiryNumber ? (
+            <p className="text-xs text-muted-foreground">Inquiry #{po.inquiryNumber}</p>
+          ) : null}
+        </DialogHeader>
+
+        <div className="grid flex-1 gap-4 overflow-y-auto py-4 md:grid-cols-2">
+          {/* LEFT: Core PO details */}
+          <section className="space-y-2 text-sm text-foreground">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
                 Company
               </p>
               <p className="font-medium">{po.companyName}</p>
-              <p className="whitespace-pre-line text-primaryText/70">{po.companyAddress}</p>
+              <p className="whitespace-pre-line text-muted-foreground">{po.companyAddress}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Quantity</p>
+                <p className="text-xs uppercase tracking-normal text-muted-foreground">Quantity</p>
                 <p>
                   {po.quantity} {po.quantityUnit ?? ''}
                 </p>
               </div>
               {po.askingPrice !== undefined && po.askingPrice !== null && (
                 <div>
-                  <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                  <p className="text-xs uppercase tracking-normal text-muted-foreground">
                     Asking Price
                   </p>
                   <p>{po.askingPrice}</p>
@@ -122,7 +133,7 @@ const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
               )}
               {po.purchasePrice !== undefined && po.purchasePrice !== null && (
                 <div>
-                  <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                  <p className="text-xs uppercase tracking-normal text-muted-foreground">
                     Purchase Price
                   </p>
                   <p>{po.purchasePrice}</p>
@@ -130,13 +141,13 @@ const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
               )}
               {po.purity && (
                 <div>
-                  <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Purity</p>
+                  <p className="text-xs uppercase tracking-normal text-muted-foreground">Purity</p>
                   <p>{po.purity}</p>
                 </div>
               )}
               {po.grade && (
                 <div>
-                  <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Grade</p>
+                  <p className="text-xs uppercase tracking-normal text-muted-foreground">Grade</p>
                   <p>{po.grade}</p>
                 </div>
               )}
@@ -144,13 +155,13 @@ const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                <p className="text-xs uppercase tracking-normal text-muted-foreground">
                   Created On
                 </p>
                 <p>{createdDate || '—'}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                <p className="text-xs uppercase tracking-normal text-muted-foreground">
                   Expected Delivery
                 </p>
                 <p>{expectedDate || '—'}</p>
@@ -159,11 +170,11 @@ const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Status</p>
+                <p className="text-xs uppercase tracking-normal text-muted-foreground">Status</p>
                 <p>{prettyStatus(po.status)}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                <p className="text-xs uppercase tracking-normal text-muted-foreground">
                   Current Queue
                 </p>
                 <p>{po.sendTo ?? '—'}</p>
@@ -172,13 +183,13 @@ const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                <p className="text-xs uppercase tracking-normal text-muted-foreground">
                   Fulfillment Type
                 </p>
                 <p>{po.fulfillmentType ?? '—'}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                <p className="text-xs uppercase tracking-normal text-muted-foreground">
                   Delivery Code
                 </p>
                 <p>{po.deliveryCode ?? '—'}</p>
@@ -187,71 +198,73 @@ const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                <p className="text-xs uppercase tracking-normal text-muted-foreground">
                   Approved By (ID)
                 </p>
                 <p>{po.approvedById ?? '—'}</p>
-                <p className="text-[11px] text-primaryText/60">{approvedAt || ''}</p>
+                <p className="text-xs text-muted-foreground">{approvedAt || ''}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                <p className="text-xs uppercase tracking-normal text-muted-foreground">
                   Packed By (ID)
                 </p>
                 <p>{po.packedById ?? '—'}</p>
-                <p className="text-[11px] text-primaryText/60">{packedAt || ''}</p>
+                <p className="text-xs text-muted-foreground">{packedAt || ''}</p>
               </div>
             </div>
 
             {po.rejectionReason && (
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-red-500">Rejection Reason</p>
-                <p className="whitespace-pre-line text-red-500/90">{po.rejectionReason}</p>
+                <p className="text-xs uppercase tracking-normal text-destructive">
+                  Rejection Reason
+                </p>
+                <p className="whitespace-pre-line text-destructive">{po.rejectionReason}</p>
               </div>
             )}
 
             {po.comments && (
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                <p className="text-xs uppercase tracking-normal text-muted-foreground">
                   Sales Comments
                 </p>
-                <p className="whitespace-pre-line text-primaryText/80">{po.comments}</p>
+                <p className="whitespace-pre-line text-foreground">{po.comments}</p>
               </div>
             )}
           </section>
 
           {/* RIGHT: Status history */}
-          <section className="flex flex-col gap-3 text-xs text-primaryText">
+          <section className="flex flex-col gap-3 text-sm text-foreground">
             <div>
-              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-primaryText/60">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
                 Status History
               </p>
-              <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-stroke bg-background p-2">
+              <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border bg-background p-2">
                 {loadingLogs ? (
                   <div className="flex items-center justify-center py-4">
                     <Loader />
                   </div>
                 ) : logError ? (
-                  <p className="text-xs text-red-500">{logError}</p>
+                  <p className="text-xs text-destructive">{logError}</p>
                 ) : logs.length === 0 ? (
-                  <p className="text-[11px] text-primaryText/60">No status changes recorded yet.</p>
+                  <p className="text-xs text-muted-foreground">No status changes recorded yet.</p>
                 ) : (
                   logs.map((log) => (
-                    <div key={log.id} className="rounded-md bg-foreground/40 p-1.5">
-                      <div className="text-[11px] font-semibold">
+                    <div key={log.id} className="rounded-md bg-card p-1.5">
+                      <div className="text-xs font-semibold">
                         {prettyTransition(log.fromStatus, log.toStatus)}
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-[11px] text-primaryText/60">
+                        <span className="text-xs text-muted-foreground">
                           {new Date(log.changedAt).toLocaleString()}
                         </span>
                         {log.note && (
-                          <span className="ml-2 line-clamp-1 text-[11px] text-primaryText/70">
+                          <span className="ml-2 line-clamp-1 text-xs text-muted-foreground">
                             {log.note}
                           </span>
                         )}
                       </div>
                       {log.changedBy && (
-                        <div className="text-[11px] text-primaryText/60">
+                        <div className="text-xs text-muted-foreground">
                           Changed by user ID: {log.changedBy}
                         </div>
                       )}
@@ -261,24 +274,20 @@ const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
               </div>
             </div>
 
-            <p className="text-[11px] text-primaryText/60">
+            <p className="text-xs text-muted-foreground">
               This is a read-only view. Approvals, routing, and completion actions happen from their
               respective queues (Admin Review / Purchase / Production).
             </p>
           </section>
         </div>
 
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-stroke bg-background px-3 py-1 text-xs text-primaryText hover:bg-stroke/40"
-          >
+        <DialogFooter>
+          <Button type="button" onClick={onClose} variant="outline" size="sm">
             Close
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
@@ -338,18 +347,14 @@ const SalesAllPOsView: React.FC = () => {
   }, [authUser]);
 
   if (!authUser) {
-    return (
-      <div className="rounded-xl border border-stroke bg-foreground p-4 text-sm text-primaryText">
-        Please log in to view POs.
-      </div>
-    );
+    return <SalesMessageCard>Please log in to view POs.</SalesMessageCard>;
   }
 
   if (role !== 'admin') {
     return (
-      <div className="rounded-xl border border-stroke bg-foreground p-6 text-sm text-primaryText">
+      <SalesMessageCard>
         You do not have permission to access All POs. This view is only available to admins.
-      </div>
+      </SalesMessageCard>
     );
   }
 
@@ -362,25 +367,22 @@ const SalesAllPOsView: React.FC = () => {
   }
 
   if (error) {
-    return (
-      <div className="rounded-xl border border-stroke bg-foreground p-4 text-sm text-primaryText">
-        {error}
-      </div>
-    );
+    return <SalesMessageCard>{error}</SalesMessageCard>;
   }
 
   return (
     <>
       <div className="flex h-full flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-primaryText">All POs</h2>
-          <span className="text-xs text-primaryText/70">{data.length} total</span>
-        </div>
+        <SalesPageHeader
+          title="All Inquiries"
+          description="Read-only admin view of every sales inquiry and purchase order."
+          meta={<span className="text-sm text-muted-foreground">{data.length} total</span>}
+        />
+
+        <SalesSectionHeader title="All records" count={data.length} />
 
         {data.length === 0 ? (
-          <div className="rounded-xl border border-stroke bg-foreground p-6 text-center text-sm text-primaryText/80">
-            No POs found.
-          </div>
+          <SalesEmptyState description="No POs found." />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {data.map((po) => (
