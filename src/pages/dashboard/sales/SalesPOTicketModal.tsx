@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 
+import DocumentList from '@/components/documents/DocumentList';
 import { Loader } from '@/components/ui/Loader';
 import type { SalesPO, SalesPOStatusLog } from '@/types/sales';
 import { getSalesPOStatusLog } from '@/api/sales';
+import { prettyStatus, prettyTransition } from '@/utils/salesStatus';
 
 type TimelineEntry = {
   id: number;
@@ -40,6 +42,12 @@ type Props = {
 
   // optional action section
   action?: SalesPOTicketActionConfig;
+};
+
+const getPrimaryNumberLabel = (po: SalesPO) => {
+  if (po.poNumber) return `PO #${po.poNumber}`;
+  if (po.inquiryNumber) return `Inquiry #${po.inquiryNumber}`;
+  return `#${po.id}`;
 };
 
 const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false, action }) => {
@@ -94,15 +102,13 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
   const expectedDate = po.expectedDeliveryDate
     ? new Date(po.expectedDeliveryDate).toLocaleDateString()
     : '—';
-
-  const companyName = maskCompany ? 'Confidential Client' : po.companyName;
-  const companyAddress = maskCompany ? 'Hidden for this view' : po.companyAddress;
+  const primaryNumberLabel = getPrimaryNumberLabel(po);
 
   const timeline: TimelineEntry[] = useMemo(
     () =>
       logs.map((log) => ({
         id: log.id,
-        label: `${log.fromStatus ? `${log.fromStatus} → ` : ''}${log.toStatus}`,
+        label: prettyTransition(log.fromStatus, log.toStatus),
         at: new Date(log.changedAt).toLocaleString(),
         note: log.note ?? undefined,
       })),
@@ -141,11 +147,14 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
         <header className="mb-3 flex items-start justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold text-primaryText">
-              Ticket Details – {po.poNumber ?? `#${po.id}`}
+              Ticket Details – {primaryNumberLabel}
             </h2>
+            {po.poNumber && po.inquiryNumber ? (
+              <p className="text-xs text-primaryText/70">Inquiry #{po.inquiryNumber}</p>
+            ) : null}
             <p className="text-xs text-primaryText/70">
-              {companyName} • {po.quantity} {po.quantityUnit ?? ''}{' '}
-              {po.purity ? `• ${po.purity}` : ''}
+              {maskCompany ? 'Customer hidden' : po.companyName} • {po.quantity}{' '}
+              {po.quantityUnit ?? ''} {po.purity ? `• ${po.purity}` : ''}
             </p>
           </div>
           <button
@@ -164,8 +173,14 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
               <p className="text-[11px] font-medium uppercase tracking-wide text-primaryText/60">
                 Company
               </p>
-              <p className="font-medium">{companyName}</p>
-              <p className="whitespace-pre-line text-primaryText/70">{companyAddress}</p>
+              {maskCompany ? (
+                <p className="text-primaryText/70">Customer details hidden for this view</p>
+              ) : (
+                <>
+                  <p className="font-medium">{po.companyName}</p>
+                  <p className="whitespace-pre-line text-primaryText/70">{po.companyAddress}</p>
+                </>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -184,7 +199,7 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Status</p>
-                <p>{po.status}</p>
+                <p>{prettyStatus(po.status)}</p>
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Send To</p>
@@ -194,8 +209,19 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
 
             {po.askingPrice !== undefined && po.askingPrice !== null && (
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Price</p>
+                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                  Asking Price
+                </p>
                 <p>₹{Number(po.askingPrice).toLocaleString('en-IN')}</p>
+              </div>
+            )}
+
+            {po.purchasePrice !== undefined && po.purchasePrice !== null && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                  Purchase Price
+                </p>
+                <p>₹{Number(po.purchasePrice).toLocaleString('en-IN')}</p>
               </div>
             )}
 
@@ -253,6 +279,10 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
               )}
             </div>
           </section>
+        </div>
+
+        <div className="mt-4">
+          <DocumentList module="sales_po" entityId={po.id} />
         </div>
 
         {/* action section */}

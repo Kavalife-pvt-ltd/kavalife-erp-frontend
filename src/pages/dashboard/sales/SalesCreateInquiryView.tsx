@@ -1,20 +1,18 @@
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
+import imageCompression from 'browser-image-compression';
+import { FileText, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { useAuthContext } from '@/hooks/useAuthContext';
+import { uploadDocuments } from '@/api/documents';
 import { createSalesPO } from '@/api/sales';
-import { getCOASignedUrl, uploadCOA } from '@/api/coa';
 import type { SalesPORequestType } from '@/types/sales';
 
 type FormState = {
-  productName: string;
+  productName: string; // ✅ text now
   companyName: string;
   companyAddress: string;
-
-  // stores backend-returned storage path e.g. "coa/2026/01/uuid.jpg"
-  coaUrl: string;
-
   contactName: string;
   contactNumber: string;
   contactEmail: string;
@@ -28,14 +26,10 @@ type FormState = {
   expectedDeliveryDate: string; // yyyy-mm-dd
 };
 
-const QUANTITY_UNITS = ['kg', 'L', 'pcs'] as const;
-const MAX_COA_MB = 5;
-
 const initialFormState: FormState = {
   productName: '',
   companyName: '',
   companyAddress: '',
-  coaUrl: '',
   contactName: '',
   contactNumber: '',
   contactEmail: '',
@@ -49,184 +43,143 @@ const initialFormState: FormState = {
   expectedDeliveryDate: '',
 };
 
+type SubmitPhase = 'idle' | 'creating' | 'uploading';
+
+const maxUploadFileSizeBytes = 5 * 1024 * 1024;
+const compressibleImageTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
+
+const compressionOptions = {
+  maxSizeMB: 1,
+  maxWidthOrHeight: 1600,
+  useWebWorker: true,
+};
+
+const isCompressibleImage = (file: File) => compressibleImageTypes.has(file.type.toLowerCase());
+
+const compressDocumentFiles = async (files: File[]) =>
+  Promise.all(
+    files.map(async (file) => {
+      if (!isCompressibleImage(file)) return file;
+
+      try {
+        const compressed = await imageCompression(file, compressionOptions);
+        return new File([compressed], file.name, {
+          type: compressed.type || file.type,
+          lastModified: file.lastModified,
+        });
+      } catch (error: unknown) {
+        console.error('Document image compression failed, uploading original file:', error);
+        return file;
+      }
+    })
+  );
+
 const SalesCreateInquiryView: React.FC = () => {
   const { authUser } = useAuthContext();
   const [form, setForm] = useState<FormState>(initialFormState);
-  const [coaFile, setCoaFile] = useState<File | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [openingCOA, setOpeningCOA] = useState(false);
-  const [coaLocalPreviewUrl, setCoaLocalPreviewUrl] = useState<string | null>(null);
-  const [coaUploadedPreviewUrl, setCoaUploadedPreviewUrl] = useState<string | null>(null);
-  const [previewModalOpen, setPreviewModalOpen] = useState(false);
-  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const isNumberField = useMemo(() => new Set(['quantity', 'askingPrice']), []);
-
-  const openPreviewModal = useCallback((src: string) => {
-    setPreviewSrc(src);
-    setZoom(1);
-    setPreviewModalOpen(true);
-  }, []);
-
-  const closePreviewModal = useCallback(() => {
-    setPreviewModalOpen(false);
-    setPreviewSrc(null);
-    setZoom(1);
-  }, []);
+  const submitting = submitPhase !== 'idle';
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const { name, value } = e.target;
+
+      // light sanitization only for numeric fields
       const next = isNumberField.has(name) ? value.replace(/[^\d.]/g, '') : value;
+
       setForm((prev) => ({ ...prev, [name]: next }));
     },
     [isNumberField]
   );
 
-  const handleCOAFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-
-    // reset previews first
-    setCoaUploadedPreviewUrl(null);
-
-    if (!file) {
-      setCoaFile(null);
-      setCoaLocalPreviewUrl(null);
-      return;
-    }
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file for COA');
-      e.target.value = '';
-      setCoaFile(null);
-      setCoaLocalPreviewUrl(null);
-      return;
-    }
-
-    const sizeMB = file.size / (1024 * 1024);
-    if (sizeMB > MAX_COA_MB) {
-      toast.error(`COA image must be <= ${MAX_COA_MB}MB`);
-      e.target.value = '';
-      setCoaFile(null);
-      setCoaLocalPreviewUrl(null);
-      return;
-    }
-
-    setCoaFile(file);
-
-    // create a local preview URL
-    const objectUrl = URL.createObjectURL(file);
-    setCoaLocalPreviewUrl(objectUrl);
-
-    // clear old uploaded path (avoid stale “View uploaded”)
-    setForm((prev) => ({ ...prev, coaUrl: '' }));
-  }, []);
-
-  const clearCOASelection = useCallback(() => {
-    setCoaFile(null);
-
-    if (coaLocalPreviewUrl) {
-      URL.revokeObjectURL(coaLocalPreviewUrl);
-    }
-    setCoaLocalPreviewUrl(null);
-
-    // If you want to also clear uploaded preview (but not delete from bucket)
-    setCoaUploadedPreviewUrl(null);
-
-    // If you want to clear the stored path from form as well:
-    setForm((prev) => ({ ...prev, coaUrl: '' }));
-  }, [coaLocalPreviewUrl]);
-
-  useEffect(() => {
-    return () => {
-      if (coaLocalPreviewUrl) URL.revokeObjectURL(coaLocalPreviewUrl);
-    };
-  }, [coaLocalPreviewUrl]);
-
   const validate = useCallback((): string | null => {
     if (!form.productName.trim()) return 'Product is required';
     if (!form.companyName.trim()) return 'Company name is required';
-    if (!form.companyAddress.trim()) return 'Company address is required';
 
     const q = Number(form.quantity);
     if (!form.quantity.trim() || Number.isNaN(q) || q <= 0) return 'Valid quantity is required';
 
+    // very light email validation if provided
     if (form.contactEmail.trim() && !/^\S+@\S+\.\S+$/.test(form.contactEmail.trim())) {
       return 'Contact email looks invalid';
     }
 
-    // If COA should be mandatory, uncomment:
-    // if (!coaFile && !form.coaUrl.trim()) return 'Please upload a COA image';
-
     return null;
   }, [form]);
 
-  const buildPayload = useCallback(
-    (coaPath?: string) => {
-      const quantityNum = Number(form.quantity);
+  const buildPayload = useCallback(() => {
+    const quantityNum = Number(form.quantity);
 
-      const askingPriceNum =
-        form.askingPrice.trim() && !Number.isNaN(Number(form.askingPrice))
-          ? Number(form.askingPrice)
-          : undefined;
-
-      const expectedDeliveryDateISO = form.expectedDeliveryDate
-        ? new Date(`${form.expectedDeliveryDate}T00:00:00`).toISOString()
+    const askingPriceNum =
+      form.askingPrice.trim() && !Number.isNaN(Number(form.askingPrice))
+        ? Number(form.askingPrice)
         : undefined;
 
-      return {
-        productName: form.productName.trim(),
-        companyName: form.companyName.trim(),
-        companyAddress: form.companyAddress.trim(),
+    const expectedDeliveryDateISO = form.expectedDeliveryDate
+      ? new Date(`${form.expectedDeliveryDate}T00:00:00`).toISOString()
+      : undefined;
 
-        // coaUrl is a PATH returned by backend upload endpoint
-        coaUrl: coaPath?.trim() || form.coaUrl.trim() || undefined,
+    return {
+      productName: form.productName.trim(),
+      companyName: form.companyName.trim(),
+      companyAddress: form.companyAddress.trim() || 'Not provided',
+      companyContactName: form.contactName.trim() || undefined,
+      companyContactNumber: form.contactNumber.trim() || undefined,
+      companyContactEmail: form.contactEmail.trim() || undefined,
+      purity: form.purity.trim() || undefined,
+      grade: form.grade.trim() || undefined,
+      requestType: form.requestType,
+      quantity: quantityNum,
+      quantityUnit: form.quantityUnit.trim() || undefined,
+      askingPrice: askingPriceNum,
+      comments: form.comments.trim() || undefined,
+      expectedDeliveryDate: expectedDeliveryDateISO,
+      // requestDate & salesRepId handled by backend
+    };
+  }, [form]);
 
-        companyContactName: form.contactName.trim() || undefined,
-        companyContactNumber: form.contactNumber.trim() || undefined,
-        companyContactEmail: form.contactEmail.trim() || undefined,
+  const reset = useCallback(() => setForm(initialFormState), []);
 
-        purity: form.purity.trim() || undefined,
-        grade: form.grade.trim() || undefined,
-
-        requestType: form.requestType,
-        quantity: quantityNum,
-        quantityUnit: form.quantityUnit.trim() || undefined,
-        askingPrice: askingPriceNum,
-
-        comments: form.comments.trim() || undefined,
-        expectedDeliveryDate: expectedDeliveryDateISO,
-      };
-    },
-    [form]
-  );
-
-  const reset = useCallback(() => {
-    setForm(initialFormState);
-    setCoaFile(null);
-    setCoaLocalPreviewUrl(null);
-    setCoaUploadedPreviewUrl(null);
+  const clearSelectedFiles = useCallback(() => {
+    setSelectedFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
-  const handleOpenCOA = useCallback(async () => {
-    const path = form.coaUrl.trim();
-    if (!path) {
-      toast.error('No COA uploaded yet');
-      return;
-    }
+  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    const validFiles = files.filter((file) => {
+      if (file.size <= maxUploadFileSizeBytes) return true;
+      toast.error(`${file.name} exceeds 5MB limit`);
+      return false;
+    });
 
-    try {
-      setOpeningCOA(true);
-      const signed = await getCOASignedUrl(path);
-      window.open(signed, '_blank', 'noopener,noreferrer');
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to open COA';
-      toast.error(msg);
-    } finally {
-      setOpeningCOA(false);
+    setSelectedFiles(validFiles);
+    if (validFiles.length !== files.length && fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
-  }, [form.coaUrl]);
+  }, []);
+
+  const removeSelectedFile = useCallback((indexToRemove: number) => {
+    setSelectedFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
+
+  const submitButtonLabel =
+    submitPhase === 'creating'
+      ? 'Creating Inquiry...'
+      : submitPhase === 'uploading'
+        ? 'Uploading Documents...'
+        : 'Create Inquiry';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,36 +188,36 @@ const SalesCreateInquiryView: React.FC = () => {
     if (err) return toast.error(err);
 
     try {
-      setSubmitting(true);
+      setSubmitPhase('creating');
 
-      let coaPath: string | undefined;
+      const payload = buildPayload();
+      const createdPo = await createSalesPO(payload);
 
-      // ✅ Step 1: upload file (if selected)
-      if (coaFile) {
-        toast.loading('Uploading COA…', { id: 'coa-upload' });
-        coaPath = await uploadCOA(coaFile);
+      if (selectedFiles.length > 0) {
         try {
-          const signed = await getCOASignedUrl(coaPath);
-          setCoaUploadedPreviewUrl(signed);
-        } catch {
-          // not fatal — you can still open via "View uploaded COA"
-          setCoaUploadedPreviewUrl(null);
+          setSubmitPhase('uploading');
+          const filesForUpload = await compressDocumentFiles(selectedFiles);
+          await uploadDocuments({
+            module: 'sales_po',
+            entityId: createdPo.id,
+            documentType: 'customer_coa',
+            files: filesForUpload,
+          });
+        } catch (uploadError: unknown) {
+          console.error('CreateInquiry document upload error:', uploadError);
+          toast('Inquiry created, but document upload failed.', { icon: '!' });
+          return;
         }
-        toast.success('COA uploaded', { id: 'coa-upload' });
-
-        // Save returned path so we can view it later without resubmitting
-        setForm((prev) => ({ ...prev, coaUrl: coaPath ?? '' }));
       }
 
-      // ✅ Step 2: create inquiry with coaUrl path (if any)
-      const payload = buildPayload(coaPath);
-      await createSalesPO(payload);
-
-      toast.success('Inquiry created and sent for admin review');
+      toast.success(
+        selectedFiles.length > 0
+          ? 'Inquiry created and documents uploaded'
+          : 'Inquiry created and sent for admin review'
+      );
       reset();
+      clearSelectedFiles();
     } catch (error: unknown) {
-      toast.dismiss('coa-upload');
-
       let message = 'Failed to create inquiry';
 
       if (axios.isAxiosError(error)) {
@@ -279,7 +232,7 @@ const SalesCreateInquiryView: React.FC = () => {
       console.error('CreateInquiry error:', error);
       toast.error(message);
     } finally {
-      setSubmitting(false);
+      setSubmitPhase('idle');
     }
   };
 
@@ -341,9 +294,7 @@ const SalesCreateInquiryView: React.FC = () => {
 
           {/* Company Address */}
           <div>
-            <label className="block text-sm font-medium text-primaryText">
-              Company Address<span className="text-red-500">*</span>
-            </label>
+            <label className="block text-sm font-medium text-primaryText">Company Address</label>
             <textarea
               name="companyAddress"
               value={form.companyAddress}
@@ -351,89 +302,6 @@ const SalesCreateInquiryView: React.FC = () => {
               rows={3}
               className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
-          </div>
-
-          {/* ✅ COA Upload */}
-          <div>
-            <label className="block text-sm font-medium text-primaryText">COA (Upload Image)</label>
-
-            <div className="mt-1 flex flex-col gap-2">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleCOAFileChange}
-                className="block w-full text-sm text-primaryText file:mr-3 file:rounded-md file:border-0 file:bg-background file:px-3 file:py-2 file:text-sm file:font-medium file:text-primaryText hover:file:opacity-90"
-              />
-
-              <div className="flex flex-wrap items-center gap-2 text-xs text-primaryText/70">
-                <span>Max {MAX_COA_MB}MB • Image only</span>
-
-                {/* Local selected */}
-
-                {(coaFile || form.coaUrl.trim()) && (
-                  <button
-                    type="button"
-                    onClick={clearCOASelection}
-                    className="rounded-md border border-stroke bg-background px-3 py-1 text-primaryText hover:opacity-90"
-                  >
-                    Remove
-                  </button>
-                )}
-                {coaFile && (
-                  <span className="rounded-md border border-stroke bg-background px-2 py-1 text-primaryText">
-                    Selected: {coaFile.name}
-                  </span>
-                )}
-
-                {/* Uploaded status */}
-                {form.coaUrl.trim() && (
-                  <span className="rounded-md border border-stroke bg-background px-2 py-1 text-emerald-600">
-                    Uploaded ✅
-                  </span>
-                )}
-
-                {/* View uploaded */}
-                {form.coaUrl.trim() && (
-                  <button
-                    type="button"
-                    onClick={handleOpenCOA}
-                    disabled={openingCOA}
-                    className="rounded-md border border-stroke bg-background px-3 py-1 text-primaryText hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {openingCOA ? 'Opening…' : 'View uploaded COA'}
-                  </button>
-                )}
-              </div>
-
-              {/* Thumbnails */}
-              <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {/* local preview */}
-                {coaLocalPreviewUrl && (
-                  <div className="rounded-lg border border-stroke bg-background p-2">
-                    <div className="mb-1 text-[11px] text-primaryText/70">Preview (local)</div>
-                    <img
-                      src={coaLocalPreviewUrl}
-                      alt="COA preview (local)"
-                      onClick={() => openPreviewModal(coaLocalPreviewUrl)}
-                      className="h-40 w-full rounded-md object-contain"
-                    />
-                  </div>
-                )}
-
-                {/* uploaded preview */}
-                {coaUploadedPreviewUrl && (
-                  <div className="rounded-lg border border-stroke bg-background p-2">
-                    <div className="mb-1 text-[11px] text-primaryText/70">Preview (uploaded)</div>
-                    <img
-                      src={coaUploadedPreviewUrl}
-                      alt="COA preview (uploaded)"
-                      className="h-40 w-full rounded-md object-contain"
-                      onClick={() => openPreviewModal(coaUploadedPreviewUrl)}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Contact */}
@@ -532,18 +400,14 @@ const SalesCreateInquiryView: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-primaryText">Unit</label>
-              <select
+              <input
+                type="text"
                 name="quantityUnit"
                 value={form.quantityUnit}
                 onChange={handleChange}
+                placeholder="kg, L, pcs..."
                 className="mt-1 w-full rounded-md border border-stroke bg-background px-3 py-2 text-sm text-primaryText shadow-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-              >
-                {QUANTITY_UNITS.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>
@@ -587,6 +451,73 @@ const SalesCreateInquiryView: React.FC = () => {
             />
           </div>
 
+          {/* Customer Documents */}
+          <div>
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <div>
+                <label className="block text-sm font-medium text-primaryText">
+                  Customer Documents / COA
+                </label>
+                <p className="text-[11px] text-primaryText/60">PDF or image files</p>
+              </div>
+              {selectedFiles.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearSelectedFiles}
+                  disabled={submitting}
+                  className="rounded-md border border-stroke bg-background px-2 py-1 text-[11px] text-primaryText/70 hover:bg-stroke/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+
+            <label
+              className={[
+                'flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-stroke bg-background px-3 py-4 text-center transition hover:bg-stroke/20',
+                submitting ? 'cursor-not-allowed opacity-60' : '',
+              ].join(' ')}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="application/pdf,image/*"
+                disabled={submitting}
+                onChange={handleFileChange}
+                className="sr-only"
+              />
+              <FileText size={22} className="mb-2 text-primaryText/60" />
+              <span className="text-xs font-medium text-primaryText">Select documents</span>
+              <span className="mt-1 text-[11px] text-primaryText/60">
+                Files upload after the inquiry is created
+              </span>
+            </label>
+
+            {selectedFiles.length > 0 ? (
+              <div className="mt-2 space-y-1">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={`${file.name}-${file.size}-${file.lastModified}`}
+                    className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5 text-xs text-primaryText"
+                  >
+                    <FileText size={14} className="shrink-0 text-primaryText/60" />
+                    <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeSelectedFile(index)}
+                      disabled={submitting}
+                      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-primaryText/50 hover:bg-stroke/30 hover:text-primaryText disabled:cursor-not-allowed disabled:opacity-60"
+                      aria-label={`Remove ${file.name}`}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
           {/* Submit */}
           <div className="pt-2">
             <button
@@ -594,79 +525,11 @@ const SalesCreateInquiryView: React.FC = () => {
               disabled={submitting}
               className="inline-flex items-center rounded-md bg-accent px-4 py-2 text-sm font-medium text-background shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? 'Creating Inquiry…' : 'Create Inquiry'}
+              {submitButtonLabel}
             </button>
           </div>
         </div>
       </form>
-      {previewModalOpen && previewSrc && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={closePreviewModal}
-        >
-          <div
-            className="relative w-full max-w-6xl rounded-xl border border-stroke bg-background p-3 shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-2 p-2">
-              <div className="text-sm font-medium text-primaryText">COA Preview</div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setZoom((z) => Math.max(0.5, Number((z - 0.25).toFixed(2))))}
-                  className="rounded-md border border-stroke bg-background px-3 py-1 text-sm text-primaryText hover:opacity-90"
-                >
-                  -
-                </button>
-
-                <div className="min-w-[70px] text-center text-sm text-primaryText/70">
-                  {Math.round(zoom * 100)}%
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setZoom((z) => Math.min(4, Number((z + 0.25).toFixed(2))))}
-                  className="rounded-md border border-stroke bg-background px-3 py-1 text-sm text-primaryText hover:opacity-90"
-                >
-                  +
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setZoom(1)}
-                  className="rounded-md border border-stroke bg-background px-3 py-1 text-sm text-primaryText hover:opacity-90"
-                >
-                  Reset
-                </button>
-
-                <button
-                  type="button"
-                  onClick={closePreviewModal}
-                  className="rounded-md border border-stroke bg-background px-3 py-1 text-sm text-primaryText hover:opacity-90"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div className="max-h-[80vh] overflow-auto rounded-lg border border-stroke bg-foreground p-2">
-              <img
-                src={previewSrc}
-                alt="COA full preview"
-                style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
-                className="block"
-              />
-            </div>
-
-            <p className="px-2 pt-2 text-xs text-primaryText/60">
-              Tip: use trackpad/pinch to scroll around after zooming. (Zoom buttons handle scale.)
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

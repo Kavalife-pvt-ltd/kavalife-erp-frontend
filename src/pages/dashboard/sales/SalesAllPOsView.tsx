@@ -7,10 +7,17 @@ import { Loader } from '@/components/ui/Loader';
 import SalesPOCard from '@/components/ui/SalesPOCard';
 import type { SalesPO, SalesPOStatusLog } from '@/types/sales';
 import { listSalesPO, getSalesPOStatusLog } from '@/api/sales';
+import { prettyStatus, prettyTransition } from '@/utils/salesStatus';
 
 type DetailModalProps = {
   po: SalesPO;
   onClose: () => void;
+};
+
+const getPrimaryNumberLabel = (po: SalesPO) => {
+  if (po.poNumber) return `PO #${po.poNumber}`;
+  if (po.inquiryNumber) return `Inquiry #${po.inquiryNumber}`;
+  return `#${po.id}`;
 };
 
 const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
@@ -69,8 +76,11 @@ const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
         <header className="mb-3 flex items-start justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold text-primaryText">
-              {po.poNumber ?? 'Sales PO'} – {po.requestType === 'sample' ? 'Sample' : 'Purchase'}
+              {getPrimaryNumberLabel(po)} – {po.requestType === 'sample' ? 'Sample' : 'Purchase'}
             </h2>
+            {po.poNumber && po.inquiryNumber ? (
+              <p className="text-xs text-primaryText/70">Inquiry #{po.inquiryNumber}</p>
+            ) : null}
             <p className="text-xs text-primaryText/70">
               {po.companyName} • {po.quantity} {po.quantityUnit ?? ''}
             </p>
@@ -110,6 +120,14 @@ const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
                   <p>{po.askingPrice}</p>
                 </div>
               )}
+              {po.purchasePrice !== undefined && po.purchasePrice !== null && (
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
+                    Purchase Price
+                  </p>
+                  <p>{po.purchasePrice}</p>
+                </div>
+              )}
               {po.purity && (
                 <div>
                   <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Purity</p>
@@ -142,7 +160,7 @@ const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-primaryText/60">Status</p>
-                <p>{po.status}</p>
+                <p>{prettyStatus(po.status)}</p>
               </div>
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-primaryText/60">
@@ -220,7 +238,7 @@ const SalesAllPODetailModal: React.FC<DetailModalProps> = ({ po, onClose }) => {
                   logs.map((log) => (
                     <div key={log.id} className="rounded-md bg-foreground/40 p-1.5">
                       <div className="text-[11px] font-semibold">
-                        {log.fromStatus ?? '—'} → {log.toStatus}
+                        {prettyTransition(log.fromStatus, log.toStatus)}
                       </div>
                       <div className="flex justify-between">
                         <span className="text-[11px] text-primaryText/60">
