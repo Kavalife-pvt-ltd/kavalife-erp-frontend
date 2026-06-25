@@ -379,4 +379,14 @@ Use Item Cards for:
 - Production actions
 - Status transitions
 
+---
+
+# Implemented Phase D View Split
+
+- Admin and Sales views use grouped inquiry cards so one customer inquiry appears once, even when it contains multiple ingredients.
+- Purchase and Production queues continue using item-level operational cards because their work is performed per ingredient/item.
+- The grouped inquiry modal shows customer context, group-level documents, notes, and all ingredient/item sections together.
+- Only items currently owned by Admin are actionable in the Admin grouped modal.
+- Routed items remain visible inside the grouped modal, but they are read-only until they return to Admin ownership.
+
 This keeps the customer experience grouped while preserving operational flexibility.

@@ -1,4 +1,11 @@
-import type { SalesPO, SalesPOStatus, SalesPOStatusLog, CreateSalesPORequest } from '@/types/sales';
+import type {
+  SalesInquiryGroup,
+  SalesPO,
+  SalesPOStatus,
+  SalesPOStatusLog,
+  CreateSalesInquiryRequest,
+  CreateSalesPORequest,
+} from '@/types/sales';
 import { api } from '@/api/client';
 
 export type SalesQueue = 'sales' | 'admin' | 'purchase' | 'production';
@@ -9,9 +16,37 @@ export interface ListSalesPOParams {
   sendTo?: SalesQueue;
 }
 
+export interface ListSalesInquiryParams {
+  status?: SalesPOStatus;
+  salesRepId?: number;
+  sendTo?: SalesQueue;
+}
+
 export async function createSalesPO(payload: CreateSalesPORequest): Promise<SalesPO> {
   const resp = await api.post('/sales-po/create', payload);
   return (resp.data?.data ?? resp.data) as SalesPO;
+}
+
+export async function createSalesInquiry(
+  payload: CreateSalesInquiryRequest
+): Promise<SalesInquiryGroup> {
+  const sanitizedPayload: CreateSalesInquiryRequest = {
+    ...payload,
+    items: payload.items.map(({ productName, requestType, quantity, ...item }) => ({
+      productName,
+      requestType,
+      quantity,
+      quantityUnit: item.quantityUnit,
+      purity: item.purity,
+      grade: item.grade,
+      askingPrice: item.askingPrice,
+      comments: item.comments,
+      expectedDeliveryDate: item.expectedDeliveryDate,
+    })),
+  };
+
+  const resp = await api.post('/sales-inquiries/create', sanitizedPayload);
+  return (resp.data?.data ?? resp.data) as SalesInquiryGroup;
 }
 
 export async function listSalesPO(params: ListSalesPOParams = {}): Promise<SalesPO[]> {
@@ -25,6 +60,26 @@ export async function listSalesPO(params: ListSalesPOParams = {}): Promise<Sales
 
   const payload = resp.data?.data ?? resp.data;
   return Array.isArray(payload) ? (payload as SalesPO[]) : [];
+}
+
+export async function listSalesInquiries(
+  params: ListSalesInquiryParams = {}
+): Promise<SalesInquiryGroup[]> {
+  const resp = await api.get('/sales-inquiries/view', {
+    params: {
+      ...(params.status ? { status: params.status } : {}),
+      ...(typeof params.salesRepId === 'number' ? { salesRepId: params.salesRepId } : {}),
+      ...(params.sendTo ? { sendTo: params.sendTo } : {}),
+    },
+  });
+
+  const payload = resp.data?.data ?? resp.data;
+  return Array.isArray(payload) ? (payload as SalesInquiryGroup[]) : [];
+}
+
+export async function getSalesInquiry(id: number): Promise<SalesInquiryGroup> {
+  const resp = await api.get(`/sales-inquiries/${id}`);
+  return (resp.data?.data ?? resp.data) as SalesInquiryGroup;
 }
 
 export async function getSalesPOById(id: number): Promise<SalesPO> {

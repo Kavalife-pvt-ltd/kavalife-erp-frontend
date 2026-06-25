@@ -1,36 +1,35 @@
-// src/pages/dashboard/sales/SalesAllPOsView.tsx
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { Loader } from '@/components/ui/Loader';
-import SalesPOCard from '@/components/ui/SalesPOCard';
+import SalesInquiryGroupCard from '@/components/ui/SalesInquiryGroupCard';
 import {
   SalesEmptyState,
   SalesMessageCard,
   SalesPageHeader,
   SalesSectionHeader,
 } from '@/components/sales/SalesDesign';
-import type { SalesPO } from '@/types/sales';
-import { listSalesPO } from '@/api/sales';
-import SalesPOTicketModal from './SalesPOTicketModal';
+import type { SalesInquiryGroup } from '@/types/sales';
+import { listSalesInquiries } from '@/api/sales';
+import SalesInquiryGroupModal from './SalesInquiryGroupModal';
 
 const SalesAllPOsView: React.FC = () => {
   const { authUser } = useAuthContext() as {
     authUser?: { id?: number; role?: string; department?: string };
   };
 
-  const [data, setData] = useState<SalesPO[]>([]);
+  const [groups, setGroups] = useState<SalesInquiryGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPO, setSelectedPO] = useState<SalesPO | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<SalesInquiryGroup | null>(null);
 
   const role = authUser?.role ?? 'sales';
 
   useEffect(() => {
     if (!authUser) {
       setLoading(false);
-      setError('Please log in to view POs.');
+      setError('Please log in to view inquiries.');
       return;
     }
 
@@ -41,12 +40,12 @@ const SalesAllPOsView: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const res = await listSalesPO(); // no filters → all POs
-        if (!cancelled) setData(res);
+        const res = await listSalesInquiries();
+        if (!cancelled) setGroups(res);
       } catch (err: unknown) {
         if (cancelled) return;
 
-        let message = 'Failed to load all POs';
+        let message = 'Failed to load all inquiries';
 
         if (axios.isAxiosError(err)) {
           const d = err.response?.data as
@@ -71,13 +70,13 @@ const SalesAllPOsView: React.FC = () => {
   }, [authUser]);
 
   if (!authUser) {
-    return <SalesMessageCard>Please log in to view POs.</SalesMessageCard>;
+    return <SalesMessageCard>Please log in to view inquiries.</SalesMessageCard>;
   }
 
   if (role !== 'admin') {
     return (
       <SalesMessageCard>
-        You do not have permission to access All POs. This view is only available to admins.
+        You do not have permission to access All Inquiries. This view is only available to admins.
       </SalesMessageCard>
     );
   }
@@ -99,30 +98,38 @@ const SalesAllPOsView: React.FC = () => {
       <div className="flex h-full flex-col gap-3">
         <SalesPageHeader
           title="All Inquiries"
-          description="Read-only admin view of every sales inquiry and purchase order."
-          meta={<span className="text-sm text-muted-foreground">{data.length} total</span>}
+          description="Read-only admin view of every sales inquiry grouped by request."
+          meta={
+            <span className="text-sm text-muted-foreground">
+              {groups.length} {groups.length === 1 ? 'inquiry' : 'inquiries'}
+            </span>
+          }
         />
 
-        <SalesSectionHeader title="All records" count={data.length} />
+        <SalesSectionHeader title="All inquiry groups" count={groups.length} />
 
-        {data.length === 0 ? (
-          <SalesEmptyState description="No POs found." />
+        {groups.length === 0 ? (
+          <SalesEmptyState description="No inquiries found." />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {data.map((po) => (
-              <SalesPOCard key={po.id} po={po} onClick={() => setSelectedPO(po)} />
+            {groups.map((group) => (
+              <SalesInquiryGroupCard
+                key={group.id}
+                inquiry={group}
+                onClick={() => setSelectedGroup(group)}
+              />
             ))}
           </div>
         )}
       </div>
 
-      {selectedPO && (
-        <SalesPOTicketModal
-          po={selectedPO}
-          onClose={() => setSelectedPO(null)}
-          viewerRole="admin"
+      {selectedGroup ? (
+        <SalesInquiryGroupModal
+          inquiry={selectedGroup}
+          mode="admin"
+          onClose={() => setSelectedGroup(null)}
         />
-      )}
+      ) : null}
     </>
   );
 };

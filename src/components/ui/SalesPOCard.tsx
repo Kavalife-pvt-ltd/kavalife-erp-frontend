@@ -1,7 +1,7 @@
 import React from 'react';
 import type { SalesPO } from '@/types/sales';
 import clsx from 'clsx';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SalesStatusBadge } from '@/components/sales/SalesDesign';
 
 type Props = {
@@ -48,39 +48,56 @@ const SalesPOCard: React.FC<Props> = ({ po, maskCompany = false, onClick }) => {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-medium uppercase tracking-normal text-muted-foreground">
-                {isPO ? 'Purchase Order' : 'Inquiry'}
+                {isPO ? 'PO' : 'Inquiry'}
               </p>
               <CardTitle className="mt-1 truncate text-xl leading-tight">
                 {getTicketNumberLabel(po)}
               </CardTitle>
-              <p className="mt-1 truncate text-sm text-muted-foreground">{productName}</p>
             </div>
             <SalesStatusBadge status={po.status} />
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-3 px-5 pb-5">
-          <div className="rounded-md border bg-background p-4">
-            <p className="font-medium text-foreground">{companyName}</p>
-            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{companyAddress}</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 text-sm">
+        <CardContent className="space-y-4 px-5 pb-5">
+          <div className="space-y-3">
             <div>
               <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-                Quantity
+                Ingredient
               </p>
-              <p className="text-foreground">
-                {po.quantity} {po.quantityUnit ?? ''}
+              <p className="mt-1 truncate text-lg font-semibold leading-tight text-foreground">
+                {productName}
               </p>
             </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-                Request Type
-              </p>
-              <p className="text-foreground">
-                {po.requestType === 'sample' ? 'Sample' : 'Purchase'}
-              </p>
+
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+                  Quantity
+                </p>
+                <p className="font-medium text-foreground">
+                  {po.quantity} {po.quantityUnit ?? ''}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+                  Request Type
+                </p>
+                <p className="text-foreground">
+                  {po.requestType === 'sample' ? 'Sample' : 'Purchase'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+                  Created
+                </p>
+                <p className="text-foreground">{createdDate || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+                  Due
+                </p>
+                <p className="text-foreground">{dueDate || '-'}</p>
+              </div>
             </div>
           </div>
 
@@ -114,12 +131,12 @@ const SalesPOCard: React.FC<Props> = ({ po, maskCompany = false, onClick }) => {
               <p className="line-clamp-2 text-sm text-foreground">{po.comments}</p>
             </div>
           )}
-        </CardContent>
 
-        <CardFooter className="flex items-center justify-between gap-2 px-5 pb-5 text-xs text-muted-foreground">
-          <span>{createdDate ? `Created: ${createdDate}` : 'Created: -'}</span>
-          <span>{dueDate ? `Due: ${dueDate}` : 'Due: -'}</span>
-        </CardFooter>
+          <div className="rounded-md border bg-background p-3">
+            <p className="truncate font-medium text-foreground">{companyName}</p>
+            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{companyAddress}</p>
+          </div>
+        </CardContent>
       </Card>
     </Wrapper>
   );

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import imageCompression from 'browser-image-compression';
-import { FileText, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, Plus, Trash2, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,41 +11,31 @@ import toast from 'react-hot-toast';
 
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { uploadDocuments } from '@/api/documents';
-import { createSalesPO } from '@/api/sales';
-import type { SalesPORequestType } from '@/types/sales';
+import { createSalesInquiry } from '@/api/sales';
+import type { CreateSalesInquiryRequest, SalesInquiryDraftItem } from '@/types/sales';
+import {
+  createBlankSalesInquiryItem,
+  toCreateSalesInquiryItemPayload,
+} from '@/utils/salesInquiryItems';
 
-type FormState = {
-  productName: string; // ✅ text now
+type CustomerFormState = {
   companyName: string;
   companyAddress: string;
   contactName: string;
   contactNumber: string;
   contactEmail: string;
-  purity: string;
-  grade: string;
-  requestType: SalesPORequestType;
-  quantity: string;
-  quantityUnit: string;
-  askingPrice: string;
+  requestDate: string;
   comments: string;
-  expectedDeliveryDate: string; // yyyy-mm-dd
 };
 
-const initialFormState: FormState = {
-  productName: '',
+const initialCustomerFormState: CustomerFormState = {
   companyName: '',
   companyAddress: '',
   contactName: '',
   contactNumber: '',
   contactEmail: '',
-  purity: '',
-  grade: '',
-  requestType: 'purchase',
-  quantity: '',
-  quantityUnit: 'kg',
-  askingPrice: '',
+  requestDate: '',
   comments: '',
-  expectedDeliveryDate: '',
 };
 
 type SubmitPhase = 'idle' | 'creating' | 'uploading';
@@ -85,9 +75,43 @@ const compressDocumentFiles = async (files: File[]) =>
     })
   );
 
+const optionalTrimmed = (value: string): string | undefined => {
+  const trimmed = value.trim();
+  return trimmed === '' ? undefined : trimmed;
+};
+
+const toISODate = (value: string): string | undefined =>
+  value ? new Date(`${value}T00:00:00`).toISOString() : undefined;
+
+type FormSectionProps = {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+};
+
+const FormSection: React.FC<FormSectionProps> = ({ title, description, action, children }) => (
+  <Card className="border-border/70 bg-card">
+    <CardContent className="space-y-5 p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-lg font-semibold leading-none text-foreground">{title}</h3>
+          {description ? (
+            <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+          ) : null}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
+      {children}
+    </CardContent>
+  </Card>
+);
+
 const SalesCreateInquiryView: React.FC = () => {
   const { authUser } = useAuthContext();
-  const [form, setForm] = useState<FormState>(initialFormState);
+  const [customerForm, setCustomerForm] = useState<CustomerFormState>(initialCustomerFormState);
+  const [items, setItems] = useState<SalesInquiryDraftItem[]>([createBlankSalesInquiryItem()]);
+  const [expandedClientId, setExpandedClientId] = useState<string>(items[0].clientId);
   const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -95,65 +119,92 @@ const SalesCreateInquiryView: React.FC = () => {
   const isNumberField = useMemo(() => new Set(['quantity', 'askingPrice']), []);
   const submitting = submitPhase !== 'idle';
 
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleCustomerChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const { name, value } = e.target;
+      setCustomerForm((prev) => ({ ...prev, [name]: value }));
+    },
+    []
+  );
 
-      // light sanitization only for numeric fields
+  const handleItemChange = useCallback(
+    (
+      clientId: string,
+      e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    ) => {
+      const { name, value } = e.target;
       const next = isNumberField.has(name) ? value.replace(/[^\d.]/g, '') : value;
 
-      setForm((prev) => ({ ...prev, [name]: next }));
+      setItems((prev) =>
+        prev.map((item) => (item.clientId === clientId ? { ...item, [name]: next } : item))
+      );
     },
     [isNumberField]
   );
 
+  const addItem = useCallback(() => {
+    const nextItem = createBlankSalesInquiryItem();
+    setItems((prev) => [...prev, nextItem]);
+    setExpandedClientId(nextItem.clientId);
+  }, []);
+
+  const removeItem = useCallback(
+    (clientId: string) => {
+      if (items.length === 1) return;
+
+      setItems((prev) => prev.filter((item) => item.clientId !== clientId));
+      if (expandedClientId === clientId) {
+        const nextExpanded = items.find((item) => item.clientId !== clientId)?.clientId;
+        if (nextExpanded) setExpandedClientId(nextExpanded);
+      }
+    },
+    [expandedClientId, items]
+  );
+
   const validate = useCallback((): string | null => {
-    if (!form.productName.trim()) return 'Product is required';
-    if (!form.companyName.trim()) return 'Company name is required';
+    if (!customerForm.companyName.trim()) return 'Company name is required';
 
-    const q = Number(form.quantity);
-    if (!form.quantity.trim() || Number.isNaN(q) || q <= 0) return 'Valid quantity is required';
-
-    // very light email validation if provided
-    if (form.contactEmail.trim() && !/^\S+@\S+\.\S+$/.test(form.contactEmail.trim())) {
+    if (customerForm.contactEmail.trim() && !/^\S+@\S+\.\S+$/.test(customerForm.contactEmail.trim())) {
       return 'Contact email looks invalid';
     }
 
+    if (items.length === 0) return 'At least one ingredient is required';
+
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+      if (!item.productName.trim()) return `Ingredient ${index + 1}: product name is required`;
+
+      const quantity = Number(item.quantity);
+      if (!item.quantity.trim() || Number.isNaN(quantity) || quantity <= 0) {
+        return `Ingredient ${index + 1}: valid quantity is required`;
+      }
+    }
+
     return null;
-  }, [form]);
+  }, [customerForm, items]);
 
-  const buildPayload = useCallback(() => {
-    const quantityNum = Number(form.quantity);
-
-    const askingPriceNum =
-      form.askingPrice.trim() && !Number.isNaN(Number(form.askingPrice))
-        ? Number(form.askingPrice)
-        : undefined;
-
-    const expectedDeliveryDateISO = form.expectedDeliveryDate
-      ? new Date(`${form.expectedDeliveryDate}T00:00:00`).toISOString()
-      : undefined;
+  const buildPayload = useCallback((): CreateSalesInquiryRequest => {
+    const itemPayloads = items.map(toCreateSalesInquiryItemPayload);
 
     return {
-      productName: form.productName.trim(),
-      companyName: form.companyName.trim(),
-      companyAddress: form.companyAddress.trim() || 'Not provided',
-      companyContactName: form.contactName.trim() || undefined,
-      companyContactNumber: form.contactNumber.trim() || undefined,
-      companyContactEmail: form.contactEmail.trim() || undefined,
-      purity: form.purity.trim() || undefined,
-      grade: form.grade.trim() || undefined,
-      requestType: form.requestType,
-      quantity: quantityNum,
-      quantityUnit: form.quantityUnit.trim() || undefined,
-      askingPrice: askingPriceNum,
-      comments: form.comments.trim() || undefined,
-      expectedDeliveryDate: expectedDeliveryDateISO,
-      // requestDate & salesRepId handled by backend
+      companyName: customerForm.companyName.trim(),
+      companyAddress: customerForm.companyAddress.trim() || 'Not provided',
+      companyContactName: optionalTrimmed(customerForm.contactName),
+      companyContactNumber: optionalTrimmed(customerForm.contactNumber),
+      companyContactEmail: optionalTrimmed(customerForm.contactEmail),
+      comments: optionalTrimmed(customerForm.comments),
+      requestDate: toISODate(customerForm.requestDate),
+      items: itemPayloads,
+      salesRepId: authUser?.id,
     };
-  }, [form]);
+  }, [authUser?.id, customerForm, items]);
 
-  const reset = useCallback(() => setForm(initialFormState), []);
+  const reset = useCallback(() => {
+    const nextItem = createBlankSalesInquiryItem();
+    setCustomerForm(initialCustomerFormState);
+    setItems([nextItem]);
+    setExpandedClientId(nextItem.clientId);
+  }, []);
 
   const clearSelectedFiles = useCallback(() => {
     setSelectedFiles([]);
@@ -196,15 +247,15 @@ const SalesCreateInquiryView: React.FC = () => {
       setSubmitPhase('creating');
 
       const payload = buildPayload();
-      const createdPo = await createSalesPO(payload);
+      const createdGroup = await createSalesInquiry(payload);
 
       if (selectedFiles.length > 0) {
         try {
           setSubmitPhase('uploading');
           const filesForUpload = await compressDocumentFiles(selectedFiles);
           await uploadDocuments({
-            module: 'sales_po',
-            entityId: createdPo.id,
+            module: 'sales_inquiry_group',
+            entityId: createdGroup.id,
             documentType: 'customer_coa',
             files: filesForUpload,
           });
@@ -250,42 +301,22 @@ const SalesCreateInquiryView: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <header>
+        <p className="text-sm font-medium uppercase tracking-normal text-muted-foreground">Sales</p>
         <h2 className="text-3xl font-bold text-foreground">Create Inquiry</h2>
         <p className="mt-2 max-w-3xl text-muted-foreground">
-          Capture client and product requirements. This inquiry goes to admin for review and routing
-          to purchase/production.
+          Capture client and ingredient requirements. This inquiry goes to admin for review and
+          routing to purchase/production.
         </p>
       </header>
 
-      <form
-        onSubmit={handleSubmit}
-        className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2"
-      >
-        <Card className="md:col-span-2">
-          <CardContent className="grid gap-6 p-5 md:grid-cols-2">
-            {/* LEFT */}
-            <div className="space-y-4">
-              {/* Product Name */}
-              <div>
-                <label className="block text-sm font-medium text-foreground">
-                  Product<span className="text-destructive">*</span>
-                </label>
-                <Input
-                  type="text"
-                  name="productName"
-                  value={form.productName}
-                  onChange={handleChange}
-                  placeholder="e.g. Chilli Powder"
-                  className="mt-1"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Tip: keep it human-readable. Admin/purchase/production will see this as-is.
-                </p>
-              </div>
-
-              {/* Company Name */}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <FormSection
+          title="Customer Information"
+          description="Customer details and general inquiry requirements shared by all requested items."
+        >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-foreground">
                   Company Name<span className="text-destructive">*</span>
@@ -293,181 +324,265 @@ const SalesCreateInquiryView: React.FC = () => {
                 <Input
                   type="text"
                   name="companyName"
-                  value={form.companyName}
-                  onChange={handleChange}
+                  value={customerForm.companyName}
+                  onChange={handleCustomerChange}
                   className="mt-1"
                 />
               </div>
 
-          {/* Company Address */}
-          <div>
-            <label className="block text-sm font-medium text-foreground">Company Address</label>
-            <Textarea
-              name="companyAddress"
-              value={form.companyAddress}
-              onChange={handleChange}
-              rows={3}
-              className="mt-1"
-            />
-          </div>
-
-          {/* Contact */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-foreground">Contact Name</label>
-              <Input
-                type="text"
-                name="contactName"
-                value={form.contactName}
-                onChange={handleChange}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground">Contact Number</label>
-              <Input
-                type="tel"
-                name="contactNumber"
-                value={form.contactNumber}
-                onChange={handleChange}
-                className="mt-1"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground">Contact Email</label>
-            <Input
-              type="email"
-              name="contactEmail"
-              value={form.contactEmail}
-              onChange={handleChange}
-              className="mt-1"
-            />
-          </div>
-        </div>
-
-        {/* RIGHT */}
-        <div className="space-y-4">
-          {/* Purity & Grade */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-foreground">Purity</label>
-              <Input
-                type="text"
-                name="purity"
-                value={form.purity}
-                onChange={handleChange}
-                placeholder="e.g. 98%"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground">Grade</label>
-              <Input
-                type="text"
-                name="grade"
-                value={form.grade}
-                onChange={handleChange}
-                placeholder="e.g. Pharma / Food"
-                className="mt-1"
-              />
-            </div>
-          </div>
-
-          {/* Request Type */}
-          <div>
-            <label className="block text-sm font-medium text-foreground">Request Type</label>
-            <select
-              name="requestType"
-              value={form.requestType}
-              onChange={handleChange}
-              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <option value="purchase">Purchase</option>
-              <option value="sample">Sample</option>
-            </select>
-          </div>
-
-          {/* Quantity / Unit / Price */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div>
-              <label className="block text-sm font-medium text-foreground">
-                Quantity<span className="text-destructive">*</span>
-              </label>
-              <Input
-                type="text"
-                name="quantity"
-                inputMode="decimal"
-                value={form.quantity}
-                onChange={handleChange}
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground">Unit</label>
-              <Input
-                type="text"
-                name="quantityUnit"
-                value={form.quantityUnit}
-                onChange={handleChange}
-                placeholder="kg, L, pcs..."
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground">Asking Price</label>
-              <Input
-                type="text"
-                name="askingPrice"
-                inputMode="decimal"
-                value={form.askingPrice}
-                onChange={handleChange}
-                placeholder="Optional"
-                className="mt-1"
-              />
-            </div>
-          </div>
-
-          {/* Expected Delivery Date */}
-          <div>
-            <label className="block text-sm font-medium text-foreground">
-              Expected Delivery Date
-            </label>
-            <Input
-              type="date"
-              name="expectedDeliveryDate"
-              value={form.expectedDeliveryDate}
-              onChange={handleChange}
-              className="mt-1"
-            />
-          </div>
-
-          {/* Comments */}
-          <div>
-            <label className="block text-sm font-medium text-foreground">Comments / Notes</label>
-            <Textarea
-              name="comments"
-              value={form.comments}
-              onChange={handleChange}
-              rows={3}
-              placeholder="Any special instructions / negotiation notes…"
-              className="mt-1"
-            />
-          </div>
-
-          {/* Customer Documents */}
-          <div>
-            <div className="mb-2 flex items-start justify-between gap-3">
               <div>
-                <label className="block text-sm font-medium text-foreground">
-                  Customer Documents / COA
-                </label>
-                <p className="text-xs text-muted-foreground">PDF or image files</p>
+                <label className="block text-sm font-medium text-foreground">Request Date</label>
+                <Input
+                  type="date"
+                  name="requestDate"
+                  value={customerForm.requestDate}
+                  onChange={handleCustomerChange}
+                  className="mt-1"
+                />
               </div>
-              {selectedFiles.length > 0 ? (
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-foreground">Company Address</label>
+                <Textarea
+                  name="companyAddress"
+                  value={customerForm.companyAddress}
+                  onChange={handleCustomerChange}
+                  rows={3}
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground">Contact Name</label>
+                <Input
+                  type="text"
+                  name="contactName"
+                  value={customerForm.contactName}
+                  onChange={handleCustomerChange}
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground">Contact Number</label>
+                <Input
+                  type="tel"
+                  name="contactNumber"
+                  value={customerForm.contactNumber}
+                  onChange={handleCustomerChange}
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground">Contact Email</label>
+                <Input
+                  type="email"
+                  name="contactEmail"
+                  value={customerForm.contactEmail}
+                  onChange={handleCustomerChange}
+                  className="mt-1"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-foreground">Comments / Notes</label>
+                <Textarea
+                  name="comments"
+                  value={customerForm.comments}
+                  onChange={handleCustomerChange}
+                  rows={3}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+        </FormSection>
+
+        <FormSection
+          title="Requested Ingredients / Items"
+          description="Add each ingredient as an item. Admin will route each item independently."
+          action={
+            <Button type="button" onClick={addItem} disabled={submitting} variant="outline" size="sm">
+              <Plus size={16} />
+                Add Ingredient
+              </Button>
+          }
+        >
+            <div className="space-y-2">
+              {items.map((item, index) => {
+                const expanded = expandedClientId === item.clientId;
+                const summaryName = item.productName.trim() || 'New Ingredient';
+                const quantitySummary = [item.quantity.trim(), item.quantityUnit.trim()]
+                  .filter(Boolean)
+                  .join(' ');
+
+                return (
+                  <div
+                    key={item.clientId}
+                    className="overflow-hidden rounded-md border border-border/70 bg-background"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setExpandedClientId(expanded ? '' : item.clientId)}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-muted/40"
+                    >
+                      {expanded ? (
+                        <ChevronDown size={18} className="shrink-0 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight size={18} className="shrink-0 text-muted-foreground" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-foreground">
+                          {summaryName}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                          <span>{quantitySummary || 'Quantity not set'}</span>
+                          <span>{item.requestType === 'sample' ? 'Sample' : 'Purchase'}</span>
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-md border border-border/70 px-2 py-1 text-xs font-medium text-muted-foreground">
+                        Item {index + 1}
+                      </span>
+                    </button>
+
+                    {expanded ? (
+                      <div className="space-y-4 border-t border-border/70 px-4 py-4">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <div>
+                            <label className="block text-sm font-medium text-foreground">
+                              Product<span className="text-destructive">*</span>
+                            </label>
+                            <Input
+                              type="text"
+                              name="productName"
+                              value={item.productName}
+                              onChange={(e) => handleItemChange(item.clientId, e)}
+                              placeholder="e.g. Chilli Powder"
+                              className="mt-1"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-foreground">
+                              Request Type
+                            </label>
+                            <select
+                              name="requestType"
+                              value={item.requestType}
+                              onChange={(e) => handleItemChange(item.clientId, e)}
+                              className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            >
+                              <option value="purchase">Purchase</option>
+                              <option value="sample">Sample</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-foreground">
+                              Quantity<span className="text-destructive">*</span>
+                            </label>
+                            <Input
+                              type="text"
+                              name="quantity"
+                              inputMode="decimal"
+                              value={item.quantity}
+                              onChange={(e) => handleItemChange(item.clientId, e)}
+                              className="mt-1"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-foreground">Unit</label>
+                            <Input
+                              type="text"
+                              name="quantityUnit"
+                              value={item.quantityUnit}
+                              onChange={(e) => handleItemChange(item.clientId, e)}
+                              placeholder="kg, L, pcs..."
+                              className="mt-1"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-foreground">Purity</label>
+                            <Input
+                              type="text"
+                              name="purity"
+                              value={item.purity}
+                              onChange={(e) => handleItemChange(item.clientId, e)}
+                              placeholder="e.g. 98%"
+                              className="mt-1"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-foreground">Grade</label>
+                            <Input
+                              type="text"
+                              name="grade"
+                              value={item.grade}
+                              onChange={(e) => handleItemChange(item.clientId, e)}
+                              placeholder="e.g. Pharma / Food"
+                              className="mt-1"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-foreground">
+                              Asking Price
+                            </label>
+                            <Input
+                              type="text"
+                              name="askingPrice"
+                              inputMode="decimal"
+                              value={item.askingPrice}
+                              onChange={(e) => handleItemChange(item.clientId, e)}
+                              placeholder="Optional"
+                              className="mt-1"
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-foreground">
+                              Item Comments
+                            </label>
+                            <Textarea
+                              name="comments"
+                              value={item.comments}
+                              onChange={(e) => handleItemChange(item.clientId, e)}
+                              rows={2}
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                          {items.length > 1 ? (
+                            <Button
+                              type="button"
+                              onClick={() => removeItem(item.clientId)}
+                              disabled={submitting}
+                              variant="destructive"
+                              size="sm"
+                            >
+                              <Trash2 size={16} />
+                              Remove
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+        </FormSection>
+
+        <FormSection
+          title="Customer Documents / COA"
+          description="Upload customer COA, specifications, or requirement sheets after the inquiry is created."
+          action={
+            selectedFiles.length > 0 ? (
                 <Button
                   type="button"
                   onClick={clearSelectedFiles}
@@ -477,12 +592,12 @@ const SalesCreateInquiryView: React.FC = () => {
                 >
                   Clear
                 </Button>
-              ) : null}
-            </div>
-
+            ) : null
+          }
+        >
             <label
               className={[
-                'flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed bg-background px-3 py-4 text-center transition hover:bg-muted/50',
+                'flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border/80 bg-background px-3 py-4 text-center transition hover:bg-muted/40',
                 submitting ? 'cursor-not-allowed opacity-60' : '',
               ].join(' ')}
             >
@@ -503,7 +618,7 @@ const SalesCreateInquiryView: React.FC = () => {
             </label>
 
             {selectedFiles.length > 0 ? (
-              <div className="mt-2 space-y-1">
+              <div className="space-y-1">
                 {selectedFiles.map((file, index) => (
                   <div
                     key={`${file.name}-${file.size}-${file.lastModified}`}
@@ -526,17 +641,13 @@ const SalesCreateInquiryView: React.FC = () => {
                 ))}
               </div>
             ) : null}
-          </div>
+        </FormSection>
 
-          {/* Submit */}
-          <div className="pt-2">
-            <Button type="submit" disabled={submitting}>
-              {submitButtonLabel}
-            </Button>
-          </div>
+        <div className="flex justify-end rounded-md border border-border/70 bg-card p-4">
+          <Button type="submit" disabled={submitting}>
+            {submitButtonLabel}
+          </Button>
         </div>
-          </CardContent>
-        </Card>
       </form>
     </div>
   );

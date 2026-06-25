@@ -4,7 +4,7 @@ import axios from 'axios';
 
 import { useAuthContext } from '@/hooks/useAuthContext';
 import { Loader } from '@/components/ui/Loader';
-import SalesPOCard from '@/components/ui/SalesPOCard';
+import SalesInquiryGroupCard from '@/components/ui/SalesInquiryGroupCard';
 import {
   SalesEmptyState,
   SalesFilterButton,
@@ -12,9 +12,9 @@ import {
   SalesPageHeader,
   SalesSectionHeader,
 } from '@/components/sales/SalesDesign';
-import { listSalesPO } from '@/api/sales';
-import type { SalesPO } from '@/types/sales';
-import SalesPOTicketModal from './SalesPOTicketModal';
+import { listSalesInquiries } from '@/api/sales';
+import type { SalesInquiryGroup } from '@/types/sales';
+import SalesInquiryGroupModal from './SalesInquiryGroupModal';
 
 type FilterId = 'all' | 'active' | 'rejected' | 'done';
 
@@ -23,10 +23,10 @@ const SalesMyInquiriesView: React.FC = () => {
     authUser?: { id?: number; role?: string };
   };
 
-  const [items, setItems] = useState<SalesPO[]>([]);
+  const [groups, setGroups] = useState<SalesInquiryGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPO, setSelectedPO] = useState<SalesPO | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<SalesInquiryGroup | null>(null);
   const [filter, setFilter] = useState<FilterId>('all');
 
   const userId = authUser?.id;
@@ -45,10 +45,9 @@ const SalesMyInquiriesView: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        // ✅ My Inquiries = everything created by me (regardless of send_to)
-        const data = await listSalesPO({ salesRepId: userId });
+        const data = await listSalesInquiries({ salesRepId: userId });
 
-        if (!cancelled) setItems(Array.isArray(data) ? data : []);
+        if (!cancelled) setGroups(Array.isArray(data) ? data : []);
       } catch (err: unknown) {
         if (cancelled) return;
 
@@ -74,31 +73,36 @@ const SalesMyInquiriesView: React.FC = () => {
   }, [userId]);
 
   const filtered = useMemo(() => {
-    if (filter === 'all') return items;
+    if (filter === 'all') return groups;
 
     if (filter === 'rejected') {
-      return items.filter(
-        (po) => po.status === 'admin_rejected' || po.status === 'client_rejected'
+      return groups.filter((group) =>
+        group.items.some((item) => item.status === 'admin_rejected' || item.status === 'client_rejected')
       );
     }
 
     if (filter === 'done') {
-      return items.filter((po) => po.status === 'final_admin_approved' || po.status === 'closed');
+      return groups.filter(
+        (group) =>
+          group.items.length > 0 &&
+          group.items.every((item) =>
+            ['final_admin_approved', 'closed'].includes(item.status as string)
+          )
+      );
     }
 
-    // active = everything else (still moving through the pipeline)
-    return items.filter(
-      (po) =>
-        !['final_admin_approved', 'closed', 'admin_rejected', 'client_rejected'].includes(
-          po.status as string
-        )
+    return groups.filter((group) =>
+      group.items.some(
+        (item) =>
+          !['final_admin_approved', 'closed', 'admin_rejected', 'client_rejected'].includes(
+            item.status as string
+          )
+      )
     );
-  }, [items, filter]);
+  }, [groups, filter]);
 
   if (!authUser) {
-    return (
-      <SalesMessageCard>Please log in to view your inquiries.</SalesMessageCard>
-    );
+    return <SalesMessageCard>Please log in to view your inquiries.</SalesMessageCard>;
   }
 
   if (loading) {
@@ -110,9 +114,7 @@ const SalesMyInquiriesView: React.FC = () => {
   }
 
   if (error) {
-    return (
-      <SalesMessageCard>{error}</SalesMessageCard>
-    );
+    return <SalesMessageCard>{error}</SalesMessageCard>;
   }
 
   return (
@@ -120,50 +122,58 @@ const SalesMyInquiriesView: React.FC = () => {
       <div className="flex h-full flex-col gap-3">
         <SalesPageHeader
           title="My Inquiries"
-          description="Track your sales inquiries as they move through admin, purchase, and production."
+          description="Track your grouped customer inquiries as each ingredient moves through admin, purchase, and production."
           meta={
             <span className="text-sm text-muted-foreground">
-              {filtered.length} {filtered.length === 1 ? 'item' : 'items'}
+              {filtered.length} {filtered.length === 1 ? 'inquiry' : 'inquiries'}
             </span>
           }
           action={
             <div className="flex items-center gap-2">
-            {(
-              [
-                { id: 'all', label: 'All' },
-                { id: 'active', label: 'Active' },
-                { id: 'rejected', label: 'Returned' },
-                { id: 'done', label: 'Done' },
-              ] as const
-            ).map((t) => (
-              <SalesFilterButton key={t.id} active={filter === t.id} onClick={() => setFilter(t.id)}>
-                {t.label}
-              </SalesFilterButton>
-            ))}
+              {(
+                [
+                  { id: 'all', label: 'All' },
+                  { id: 'active', label: 'Active' },
+                  { id: 'rejected', label: 'Returned' },
+                  { id: 'done', label: 'Done' },
+                ] as const
+              ).map((t) => (
+                <SalesFilterButton
+                  key={t.id}
+                  active={filter === t.id}
+                  onClick={() => setFilter(t.id)}
+                >
+                  {t.label}
+                </SalesFilterButton>
+              ))}
             </div>
           }
         />
 
-        <SalesSectionHeader title="Inquiry list" count={filtered.length} />
+        <SalesSectionHeader title="Inquiry list" count={filtered.length} countLabel="groups" />
 
         {filtered.length === 0 ? (
-          <SalesEmptyState description="Nothing here yet. Create an inquiry and it will show up immediately, even while it is with admin, purchase, or production." />
+          <SalesEmptyState description="Nothing here yet. Create an inquiry and it will show up as one grouped card with item-level progress." />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((po) => (
-              <SalesPOCard key={po.id} po={po} onClick={() => setSelectedPO(po)} />
+            {filtered.map((group) => (
+              <SalesInquiryGroupCard
+                key={group.id}
+                inquiry={group}
+                onClick={() => setSelectedGroup(group)}
+              />
             ))}
           </div>
         )}
       </div>
 
-      {selectedPO && (
-        <SalesPOTicketModal
-          po={selectedPO}
-          onClose={() => setSelectedPO(null)}
-          viewerRole="sales"
+      {selectedGroup ? (
+        <SalesInquiryGroupModal
+          inquiry={selectedGroup}
+          mode="sales"
+          onClose={() => setSelectedGroup(null)}
         />
-      )}
+      ) : null}
     </>
   );
 };

@@ -103,3 +103,57 @@ export interface CreateSalesPORequest {
   comments?: string;
   expectedDeliveryDate?: string; // ISO string e.g. "2025-12-15T00:00:00Z"
 }
+
+export interface SalesInquiryGroup {
+  id: number;
+  inquiryNumber?: string | null;
+  companyName: string;
+  companyAddress: string;
+  companyContactName?: string | null;
+  companyContactNumber?: string | null;
+  companyContactEmail?: string | null;
+  salesRepId?: number | null;
+  requestDate: string;
+  comments?: string | null;
+  items: SalesPO[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSalesInquiryRequest {
+  companyName: string;
+  companyAddress?: string;
+  companyContactName?: string;
+  companyContactNumber?: string;
+  companyContactEmail?: string;
+  comments?: string;
+  requestDate?: string;
+  items: CreateSalesInquiryItemRequest[];
+  salesRepId?: number;
+}
+
+export interface CreateSalesInquiryItemRequest {
+  productName: string;
+  requestType: SalesPORequestType;
+  quantity: number;
+  quantityUnit?: string;
+  purity?: string;
+  grade?: string;
+  askingPrice?: number;
+  comments?: string;
+  expectedDeliveryDate?: string;
+}
+
+export type SalesInquiryDraftItem = {
+  clientId: string;
+  productName: string;
+  requestType: SalesPORequestType;
+  quantity: string;
+  quantityUnit: string;
+  purity: string;
+  grade: string;
+  askingPrice: string;
+  comments: string;
+};
+
+export type CreateSalesInquiryItemPayload = CreateSalesInquiryItemRequest;
