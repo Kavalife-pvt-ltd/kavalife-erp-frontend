@@ -171,14 +171,14 @@ const SalesPage: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Sales</h1>
         </div>
       </header>
 
-      <main className="flex-1 overflow-auto pb-4">{renderActiveView()}</main>
+      <main>{renderActiveView()}</main>
     </div>
   );
 };
