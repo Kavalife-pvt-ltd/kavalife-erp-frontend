@@ -158,6 +158,7 @@ const SalesPurchaseQueueView: React.FC = () => {
           po={selectedPO}
           onClose={() => setSelectedPO(null)}
           maskCompany={!isAdmin}
+          viewerRole={isAdmin ? 'admin' : 'purchase'}
           action={{
             title:
               selectedPO.status === 'purchase_approved'
