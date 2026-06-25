@@ -23,7 +23,10 @@ type TimelineEntry = {
   label: string;
   at: string;
   note?: string | null;
+  changedBy?: number | null;
 };
+
+export type SalesPOTicketViewerRole = 'admin' | 'sales' | 'purchase' | 'production';
 
 export type SalesPOTicketActionConfig = {
   title: string;
@@ -50,10 +53,42 @@ type Props = {
 
   // masking support
   maskCompany?: boolean;
+  viewerRole?: SalesPOTicketViewerRole;
 
   // optional action section
   action?: SalesPOTicketActionConfig;
 };
+
+type DetailItemProps = {
+  label: string;
+  value?: React.ReactNode;
+  className?: string;
+};
+
+const EMPTY_VALUE = '—';
+
+const isEmptyValue = (value: React.ReactNode) =>
+  value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
+
+const DetailItem: React.FC<DetailItemProps> = ({ label, value, className = '' }) => (
+  <div className={className}>
+    <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">{label}</p>
+    <div className="mt-1 text-sm text-foreground">{isEmptyValue(value) ? EMPTY_VALUE : value}</div>
+  </div>
+);
+
+const TicketSection: React.FC<{
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}> = ({ title, children, className = '' }) => (
+  <section className={`space-y-3 rounded-md border bg-background p-4 ${className}`}>
+    <h3 className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+      {title}
+    </h3>
+    {children}
+  </section>
+);
 
 const getPrimaryNumberLabel = (po: SalesPO) => {
   if (po.poNumber) return `PO #${po.poNumber}`;
@@ -61,9 +96,59 @@ const getPrimaryNumberLabel = (po: SalesPO) => {
   return `#${po.id}`;
 };
 
-const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false, action }) => {
+const getViewerRole = (
+  viewerRole: SalesPOTicketViewerRole | undefined,
+  maskCompany: boolean
+): SalesPOTicketViewerRole => {
+  if (viewerRole) return viewerRole;
+  return maskCompany ? 'purchase' : 'sales';
+};
+
+const formatDate = (value?: string | null) =>
+  value ? new Date(value).toLocaleDateString() : EMPTY_VALUE;
+
+const formatDateTime = (value?: string | null) =>
+  value ? new Date(value).toLocaleString() : EMPTY_VALUE;
+
+const formatMoney = (value?: number | null) =>
+  value == null
+    ? null
+    : `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+
+const formatRequestType = (value: SalesPO['requestType']) =>
+  value === 'sample' ? 'Sample' : 'Purchase';
+
+const formatQueue = (value?: string | null) => {
+  if (!value) return EMPTY_VALUE;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+};
+
+const getSalesRepDisplay = (po: SalesPO) => {
+  // TODO: Prefer a backend-provided display name when Sales PO responses join user records.
+  if (po.salesRepId === null || po.salesRepId === undefined) return null;
+  return `Sales Rep ID: ${po.salesRepId}`;
+};
+
+const SalesPOTicketModal: React.FC<Props> = ({
+  po,
+  onClose,
+  maskCompany = false,
+  viewerRole,
+  action,
+}) => {
+  const role = getViewerRole(viewerRole, maskCompany);
+  const isCustomerMasked = maskCompany || role === 'purchase' || role === 'production';
+  const canSeeCustomer = !isCustomerMasked && (role === 'admin' || role === 'sales');
+  const canSeeSalesRep = role === 'admin';
+  const canSeeSendTo = role === 'admin';
+  const canSeeRequestType = role !== 'production';
+  const canSeeStatusHistory = role === 'admin' || role === 'sales';
+  const canSeeAskingPrice = role !== 'production' && po.askingPrice != null;
+  const canSeePurchasePrice =
+    po.purchasePrice != null && (role === 'admin' || role === 'sales' || role === 'purchase');
+
   const [logs, setLogs] = useState<SalesPOStatusLog[]>([]);
-  const [loadingLogs, setLoadingLogs] = useState(true);
+  const [loadingLogs, setLoadingLogs] = useState(canSeeStatusHistory);
   const [logError, setLogError] = useState<string | null>(null);
 
   const [note, setNote] = useState('');
@@ -76,6 +161,13 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
   };
 
   useEffect(() => {
+    if (!canSeeStatusHistory) {
+      setLogs([]);
+      setLoadingLogs(false);
+      setLogError(null);
+      return;
+    }
+
     let cancelled = false;
 
     const run = async () => {
@@ -107,13 +199,16 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
     return () => {
       cancelled = true;
     };
-  }, [po.id]);
+  }, [canSeeStatusHistory, po.id]);
 
-  const createdDate = po.requestDate ? new Date(po.requestDate).toLocaleString() : '—';
-  const expectedDate = po.expectedDeliveryDate
-    ? new Date(po.expectedDeliveryDate).toLocaleDateString()
-    : '—';
+  const createdDate = formatDateTime(po.requestDate);
+  const expectedDate = formatDate(po.expectedDeliveryDate);
   const primaryNumberLabel = getPrimaryNumberLabel(po);
+  const productName = po.productName?.trim() || EMPTY_VALUE;
+  const quantityLabel = `${po.quantity} ${po.quantityUnit ?? ''}`.trim();
+  const salesRepDisplay = getSalesRepDisplay(po);
+  const askingPrice = formatMoney(po.askingPrice);
+  const purchasePrice = formatMoney(po.purchasePrice);
 
   const timeline: TimelineEntry[] = useMemo(
     () =>
@@ -122,6 +217,7 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
         label: prettyTransition(log.fromStatus, log.toStatus),
         at: new Date(log.changedAt).toLocaleString(),
         note: log.note ?? undefined,
+        changedBy: log.changedBy ?? undefined,
       })),
     [logs]
   );
@@ -154,181 +250,174 @@ const SalesPOTicketModal: React.FC<Props> = ({ po, onClose, maskCompany = false,
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-3xl">
+      <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-4xl">
         <DialogHeader>
           <div>
-            <div className="mb-2 flex items-start justify-between gap-3">
+            <div className="mb-2 flex items-start justify-between gap-3 pr-6">
               <DialogTitle>Ticket Details - {primaryNumberLabel}</DialogTitle>
               <SalesStatusBadge status={po.status} />
             </div>
             <DialogDescription>
-              {maskCompany ? 'Customer hidden' : po.companyName} • {po.quantity}{' '}
-              {po.quantityUnit ?? ''} {po.purity ? `• ${po.purity}` : ''}
-              {po.poNumber && po.inquiryNumber ? ` • Inquiry #${po.inquiryNumber}` : ''}
+              {productName} • {quantityLabel || EMPTY_VALUE}
+              {po.purity ? ` • ${po.purity}` : ''}
+              {canSeeCustomer ? ` • ${po.companyName}` : ''}
             </DialogDescription>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 space-y-5 overflow-y-auto py-4">
-          <div className="grid gap-4 md:grid-cols-2">
-          {/* left details */}
-          <section className="space-y-3 text-sm text-foreground">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-                Company
-              </p>
-              {maskCompany ? (
-                <p className="text-muted-foreground">Customer details hidden for this view</p>
-              ) : (
-                <>
-                  <p className="font-medium">{po.companyName}</p>
-                  <p className="whitespace-pre-line text-muted-foreground">{po.companyAddress}</p>
-                </>
-              )}
+        <div className="flex-1 space-y-4 overflow-y-auto py-4">
+          <TicketSection title="Header Summary">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <DetailItem label="Inquiry Number" value={po.inquiryNumber ?? `#${po.id}`} />
+              {(role === 'admin' || role === 'sales') && po.poNumber ? (
+                <DetailItem label="PO Number" value={po.poNumber} />
+              ) : null}
+              <DetailItem label="Current Status" value={prettyStatus(po.status)} />
+              {canSeeSendTo ? <DetailItem label="Send To" value={formatQueue(po.sendTo)} /> : null}
+              <DetailItem label="Created Date" value={createdDate} />
+              <DetailItem label="Expected Delivery Date" value={expectedDate} />
+              {canSeeSalesRep && salesRepDisplay ? (
+                <DetailItem label="Created By / Sales Rep" value={salesRepDisplay} />
+              ) : null}
+            </div>
+          </TicketSection>
+
+          {canSeeCustomer ? (
+            <TicketSection title="Customer / Company Context">
+              <div className="grid gap-3 md:grid-cols-2">
+                <DetailItem label="Company Name" value={po.companyName} />
+                <DetailItem
+                  label="Company Address"
+                  value={<p className="whitespace-pre-line">{po.companyAddress}</p>}
+                />
+                <DetailItem label="Contact Name" value={po.companyContactName} />
+                <DetailItem label="Contact Number" value={po.companyContactNumber} />
+                <DetailItem label="Contact Email" value={po.companyContactEmail} />
+              </div>
+            </TicketSection>
+          ) : null}
+
+          <TicketSection title="Ingredient / Requirement Details">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <DetailItem label="Ingredient / Product Name" value={productName} />
+              <DetailItem label="Quantity" value={quantityLabel} />
+              {canSeeRequestType ? (
+                <DetailItem label="Request Type" value={formatRequestType(po.requestType)} />
+              ) : null}
+              <DetailItem label="Purity" value={po.purity} />
+              <DetailItem label="Grade" value={po.grade} />
+              {canSeeAskingPrice && askingPrice ? (
+                <DetailItem label="Asking Price" value={askingPrice} />
+              ) : null}
+              {canSeePurchasePrice && purchasePrice ? (
+                <DetailItem label="Purchase Price" value={purchasePrice} />
+              ) : null}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <DetailItem
+              label="Customer Comments / Requirements"
+              value={<p className="whitespace-pre-line">{po.comments || EMPTY_VALUE}</p>}
+            />
+
+            {po.rejectionReason ? (
               <div>
-                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">Created</p>
-                <p>{createdDate}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-                  Expected Delivery
+                <p className="text-xs font-medium uppercase tracking-normal text-destructive">
+                  Rejection Reason
                 </p>
-                <p>{expectedDate}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">Status</p>
-                <p>{prettyStatus(po.status)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">Send To</p>
-                <p>{po.sendTo ?? '—'}</p>
-              </div>
-            </div>
-
-            {po.askingPrice !== undefined && po.askingPrice !== null && (
-              <div>
-                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-                  Asking Price
+                <p className="mt-1 whitespace-pre-line text-sm text-destructive">
+                  {po.rejectionReason}
                 </p>
-                <p>₹{Number(po.askingPrice).toLocaleString('en-IN')}</p>
               </div>
-            )}
+            ) : null}
+          </TicketSection>
 
-            {po.purchasePrice !== undefined && po.purchasePrice !== null && (
-              <div>
-                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-                  Purchase Price
-                </p>
-                <p>₹{Number(po.purchasePrice).toLocaleString('en-IN')}</p>
-              </div>
-            )}
+          <TicketSection title="Documents">
+            <DocumentList module="sales_po" entityId={po.id} />
+          </TicketSection>
 
-            {po.comments && (
-              <div>
-                <p className="text-xs font-medium uppercase tracking-normal text-muted-foreground">Comments</p>
-                <p className="whitespace-pre-line text-foreground">{po.comments}</p>
-              </div>
-            )}
-
-            {po.rejectionReason && (
-              <div>
-                <p className="text-xs uppercase tracking-normal text-destructive">Rejection</p>
-                <p className="whitespace-pre-line text-destructive">{po.rejectionReason}</p>
-              </div>
-            )}
-          </section>
-
-          {/* right history */}
-          <section className="text-sm text-foreground">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
-              Status History
-            </p>
-
-            <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border bg-background p-2">
+          {canSeeStatusHistory ? (
+            <TicketSection title="Status History">
               {loadingLogs ? (
                 <div className="flex items-center justify-center py-4">
                   <Loader />
                 </div>
               ) : logError ? (
                 <p className="text-xs text-destructive">{logError}</p>
-              ) : timeline.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No status changes logged yet.</p>
               ) : (
-                <>
-                  <div className="rounded-md bg-card p-2">
+                <ol className="max-h-72 space-y-2 overflow-y-auto text-sm">
+                  <li className="rounded-md bg-card p-2">
                     <div className="text-xs font-semibold">Created</div>
                     <div className="text-xs text-muted-foreground">{createdDate}</div>
-                  </div>
+                  </li>
 
-                  {timeline.map((item) => (
-                    <div key={item.id} className="rounded-md bg-card p-2">
-                      <div className="text-xs font-semibold">{item.label}</div>
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-xs text-muted-foreground">{item.at}</span>
-                      </div>
-                      {item.note ? (
-                        <p className="mt-0.5 whitespace-pre-line text-xs text-muted-foreground">
-                          {item.note}
-                        </p>
-                      ) : null}
-                    </div>
-                  ))}
-                </>
+                  {timeline.length === 0 ? (
+                    <li className="text-xs text-muted-foreground">No status changes logged yet.</li>
+                  ) : (
+                    timeline.map((item) => (
+                      <li key={item.id} className="rounded-md bg-card p-2">
+                        <div className="text-xs font-semibold">{item.label}</div>
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-xs text-muted-foreground">{item.at}</span>
+                        </div>
+                        {role === 'admin' && item.changedBy ? (
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Changed by user ID: {item.changedBy}
+                          </p>
+                        ) : null}
+                        {item.note ? (
+                          <p className="mt-0.5 whitespace-pre-line text-xs text-muted-foreground">
+                            {item.note}
+                          </p>
+                        ) : null}
+                      </li>
+                    ))
+                  )}
+                </ol>
               )}
-            </div>
-          </section>
+            </TicketSection>
+          ) : null}
+
+          {action ? (
+            <TicketSection title="Action Section">
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <div className="text-sm font-semibold text-foreground">{action.title}</div>
+
+                {action.renderExtraFields?.({ setField, fields })}
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
+                    {action.noteLabel ?? 'Notes'}
+                  </label>
+                  <Textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={3}
+                    placeholder={action.notePlaceholder ?? 'Optional note…'}
+                  />
+                </div>
+
+                {submitError ? <p className="text-xs text-destructive">{submitError}</p> : null}
+
+                <div className="flex justify-end gap-2">
+                  <Button type="button" onClick={onClose} variant="outline" disabled={submitting}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? (action.submittingLabel ?? 'Submitting…') : action.primaryLabel}
+                  </Button>
+                </div>
+              </form>
+            </TicketSection>
+          ) : null}
         </div>
 
-        <div className="mt-4">
-          <DocumentList module="sales_po" entityId={po.id} />
-        </div>
-
-        {/* action section */}
-        {action ? (
-          <form onSubmit={handleSubmit} className="mt-4 border-t pt-4">
-            <div className="mb-2 text-sm font-semibold text-foreground">{action.title}</div>
-
-            <div className="space-y-2">
-              {action.renderExtraFields?.({ setField, fields })}
-
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-normal text-muted-foreground">
-                  {action.noteLabel ?? 'Notes'}
-                </label>
-                <Textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  rows={3}
-                  placeholder={action.notePlaceholder ?? 'Optional note…'}
-                />
-              </div>
-
-              {submitError ? <p className="text-xs text-destructive">{submitError}</p> : null}
-
-              <div className="mt-2 flex justify-end gap-2">
-                <Button type="button" onClick={onClose} variant="outline" disabled={submitting}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? (action.submittingLabel ?? 'Submitting…') : action.primaryLabel}
-                </Button>
-              </div>
-            </div>
-          </form>
-        ) : (
+        {!action ? (
           <DialogFooter>
             <Button type="button" onClick={onClose} variant="outline">
               Close
             </Button>
           </DialogFooter>
-        )}
-        </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

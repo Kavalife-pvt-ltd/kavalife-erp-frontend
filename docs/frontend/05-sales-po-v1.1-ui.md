@@ -25,6 +25,39 @@ The UI should allow Sales to create a single customer inquiry containing multipl
 
 ---
 
+# Card vs Modal Principle
+
+Cards are summaries. Modals are complete working context. Modal content is role-tailored.
+
+Cards stay compact for scanning:
+
+- Inquiry / PO number
+- Company or masked customer label
+- Ingredient / product
+- Quantity and unit
+- Request type
+- Status
+- Created date
+- Due date when available
+- Short comments preview when present
+
+The Sales PO ticket modal is the working-context surface. Ingredient / product must always be visible in the modal.
+
+Role visibility:
+
+| Role | Modal context |
+| --- | --- |
+| Admin | Full business and workflow context, including Created By / Sales Rep where available. |
+| Sales | Full own inquiry/customer context. |
+| Purchase | Buying context only: ingredient, dates, quantity/specs, asking price when available, comments/requirements, documents, and purchase action context. |
+| Production | Production/spec context only: ingredient, dates, quantity/specs, comments/requirements, documents, and production action context. |
+
+Purchase and Production should not need Created By / Sales Rep and should not receive full customer/company/contact details unless role masking rules intentionally allow it.
+
+TODO: Current Sales PO responses may only provide `salesRepId`. Use `Sales Rep ID: <id>` for Admin until the API provides a joined display name.
+
+---
+
 # Create Inquiry Page
 
 ## Section 1 – Customer Information

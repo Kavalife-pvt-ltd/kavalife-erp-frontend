@@ -116,6 +116,7 @@ const SalesProductionQueueView: React.FC = () => {
           po={selectedPO}
           onClose={() => setSelectedPO(null)}
           maskCompany={!isAdmin}
+          viewerRole={isAdmin ? 'admin' : 'production'}
           action={{
             title: 'Production Action',
             primaryLabel: 'Mark Completed & Send to Admin',

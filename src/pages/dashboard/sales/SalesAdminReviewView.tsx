@@ -379,6 +379,7 @@ const SalesAdminReviewView: React.FC = () => {
         <SalesPOTicketModal
           po={selectedPO}
           onClose={() => setSelectedPO(null)}
+          viewerRole="admin"
           action={actionFor(selectedPO)}
         />
       )}
